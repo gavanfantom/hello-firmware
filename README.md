@@ -1,1 +1,2 @@
-# hello-firmware
+# hello
+## the mini badge
