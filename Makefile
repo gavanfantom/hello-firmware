@@ -1,5 +1,7 @@
 # Makefile
 
+DEVICE ?= /dev/ttyUSB0
+
 SRCS = hello.c startup_ARMCM0.S system.c
 LIBDIR = lpc/src
 LIBSRCS = sysinit_11xx.c sysctl_11xx.c clock_11xx.c
@@ -69,8 +71,13 @@ $(LIBDIR)/%.o : $(LIBDIR)/%.c $(DEPDIR)/%.d
 $(DEPDIR)/%.d: ;
 .PRECIOUS: $(DEPDIR)/%.d
 
-.PHONY: clean
+.PHONY: clean flash
 clean:
 	rm -f $(PROJECTFILES) $(OBJS) $(PROJECT).map
+
+flash:
+	./hello-uart.py --bootloader
+	lpc21isp -control -bin $(PROJECT).bin $(DEVICE) 115200 12000
+	./hello-uart.py --application
 
 include $(wildcard $(patsubst %,$(DEPDIR)/%.d,$(basename $(SRCS))))
