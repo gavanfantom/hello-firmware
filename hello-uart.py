@@ -10,12 +10,13 @@ group1.add_argument("--bootloader", dest='bootloader', action="store_const", con
 group1.add_argument("--application", dest='application', action="store_const", const=True, default=False, help='Switch to application mode')
 group2 = parser.add_mutually_exclusive_group()
 group2.add_argument("--read-config", dest='readconfig', metavar='filename', type=argparse.FileType('wb'), help='Read config into file')
-group2.add_argument("--write-config", dest='writeconfig', metavar='filename', type=argparse.FileType('rb'), help='Write config file to chip')
+group2.add_argument("--write-config", dest='writeconfig', metavar='filename', type=argparse.FileType('rb'), help='Write config file to chip (use with care)')
+parser.add_argument("--unconfigured", dest='unconfigured', action='store_const', const=True, default=False, help='Match unconfigured devices (use with care)')
 args = parser.parse_args()
 
 class BootloaderSwitch:
-    def __init__(self, vendor=0x10c4, product=0xea60):
-        self.dev = usb.core.find(idVendor=vendor, idProduct=product)
+    def __init__(self, **args):
+        self.dev = usb.core.find(**args)
         if self.dev is None:
             raise ValueError('Device not found')
 
@@ -65,7 +66,10 @@ def verify(config):
         return False
     return True
 
-switch = BootloaderSwitch()
+if args.unconfigured:
+    switch = BootloaderSwitch(idVendor=0x10c4, idProduct=0xea60)
+else:
+    switch = BootloaderSwitch(idVendor=0x10c4, idProduct=0xea60, product='hello badge')
 
 old_state = switch.state
 
