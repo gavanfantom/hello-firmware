@@ -2,7 +2,7 @@
 
 DEVICE ?= /dev/ttyUSB0
 
-SRCS = hello.c startup_ARMCM0.S system.c
+SRCS = hello.c startup_ARMCM0.S system.c display.c font.c i2c.c speaker.c spi.c spiflash.c uart.c write.c
 LIBDIR = lpc/src
 LIBSRCS = sysinit_11xx.c sysctl_11xx.c clock_11xx.c
 PROJECT = hello
