@@ -3,6 +3,7 @@
 #include "hello.h"
 #include "spiflash.h"
 #include "spi.h"
+#include "write.h"
 
 void spiflash_reset(void)
 {
@@ -68,6 +69,7 @@ uint8_t spiflash_status(uint8_t command, uint8_t mask)
 void spiflash_read(uint32_t address, uint8_t *data, int len)
 {
     uint32_t command = __builtin_bswap32(address) | 0x03;
+//    uart_write_string("R: ");
 //    uart_write_hex(command);
 //    uart_write_string("\r\n");
     spi_start();
@@ -127,12 +129,35 @@ bool spiflash_write(uint32_t address, uint8_t *data, int len)
         len -= pagelen;
     }
 
+//    uart_write_string("Write complete\r\n");
+    return true;
+}
+
+bool spiflash_erase_chip(void)
+{
+    spiflash_wp_off();
+    spiflash_write_enable();
+    spiflash_short_command(0x60);
+
+    while ((spiflash_status1() & 0x01) && !(spiflash_status2() & 0x40))
+        ;
+
+    spiflash_wp_on();
+
+    if (spiflash_status2() & 0x40) {
+        spiflash_clsr();
+        return false;
+    }
+
     return true;
 }
 
 bool spiflash_erase_sector(uint32_t address)
 {
     uint32_t command = __builtin_bswap32(address) | 0x20;
+//    uart_write_string("E: ");
+//    uart_write_hex(command);
+//    uart_write_string("\r\n");
     spiflash_wp_off();
     spiflash_write_enable();
     spi_start();

@@ -2,7 +2,9 @@
 
 DEVICE ?= /dev/ttyUSB0
 
-SRCS = hello.c startup_ARMCM0.S system.c display.c font.c i2c.c speaker.c spi.c spiflash.c uart.c write.c
+SRCS = hello.c startup_ARMCM0.S system.c display.c font.c i2c.c speaker.c spi.c spiflash.c uart.c write.c zmodem.c crc.c
+LITTLEFS = littlefs
+LITTLEFS_SRCS = lfs.c lfs_util.c
 LIBDIR = lpc/src
 LIBSRCS = sysinit_11xx.c sysctl_11xx.c clock_11xx.c
 PROJECT = hello
@@ -10,15 +12,16 @@ EXTENSIONS = elf bin
 GCCPREFIX = arm-none-eabi-
 LINKER_SCRIPT = LPC1115.ld
 
+SRCS += $(addprefix $(LITTLEFS)/,$(LITTLEFS_SRCS))
 SRCS += $(patsubst %,$(LIBDIR)/%,$(LIBSRCS))
 
 DEBUG_OPTS = -g3 -gdwarf-2 -gstrict-dwarf
 OPTS = -Os
 TARGET_ARCH = -mcpu=cortex-m0 -mthumb -mfloat-abi=soft
-INCLUDE = -I. -Ilpc/inc
+INCLUDE = -I. -Ilpc/inc -I$(LITTLEFS)
 CFLAGS = -ffunction-sections -fdata-sections -Wall -Werror $(DEBUG_OPTS) $(OPTS) $(INCLUDE) -DCORE_M0
-ASFLAGS = -ffunction-sections -fdata-sections -Wall -Werror $(DEBUG_OPTS) $(OPTS) $(INCLUDE) -D__STARTUP_CLEAR_BSS
-LDFLAGS = -T $(LINKER_SCRIPT) $(DEBUG_OPTS) --specs=nano.specs
+ASFLAGS = -ffunction-sections -fdata-sections -Wall -Werror $(DEBUG_OPTS) $(OPTS) $(INCLUDE) -D__STARTUP_CLEAR_BSS -D__HEAP_SIZE=0x400
+LDFLAGS = -T $(LINKER_SCRIPT) $(DEBUG_OPTS) --specs=nano.specs -Wl,--gc-sections
 
 OBJS = $(patsubst %,%.o,$(basename $(SRCS)))
 PROJECTFILES = $(foreach file,$(EXTENSIONS),$(PROJECT).$(file))
@@ -50,6 +53,11 @@ $(PROJECT).elf: $(OBJS)
 
 $(LIBDIR)/%.o : $(LIBDIR)/%.c
 $(LIBDIR)/%.o : $(LIBDIR)/%.c $(DEPDIR)/%.d
+	$(COMPILE.c) $< -o $@
+	$(POSTCOMPILE)
+
+$(LITTLEFS)/%.o : $(LITTLEFS)/%.c
+$(LITTLEFS)/%.o : $(LITTLEFS)/%.c $(DEPDIR)/%.d
 	$(COMPILE.c) $< -o $@
 	$(POSTCOMPILE)
 

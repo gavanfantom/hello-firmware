@@ -27,6 +27,7 @@ void spiflash_read(uint32_t address, uint8_t *data, int len);
 bool spiflash_write_page(uint32_t address, uint8_t *data, int len);
 
 bool spiflash_write(uint32_t address, uint8_t *data, int len);
+bool spiflash_erase_chip(void);
 bool spiflash_erase_sector(uint32_t address);
 bool spiflash_erase(uint32_t address, int len);
 
