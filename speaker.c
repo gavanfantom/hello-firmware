@@ -1,9 +1,9 @@
 /* speaker.c */
 
 #include "hello.h"
+#include "timer.h"
 #include "speaker.h"
 
-#define TIMER_PCLK 48000000
 void speaker_init(void)
 {
     /*
@@ -13,17 +13,17 @@ void speaker_init(void)
 
     LPC_IOCON->REG[IOCON_PIO2_6] = IOCON_FUNC1;
     LPC_IOCON->REG[IOCON_PIO2_7] = IOCON_FUNC1;
-    Chip_Clock_EnablePeriphClock(SYSCTL_CLOCK_CT32B0);
-    Chip_SYSCTL_DeassertPeriphReset(RESET_TIMER0_32);
-    LPC_TIMER32_0->TCR = 2; // CRst
-    LPC_TIMER32_0->TCR = 0; // CRst
-    LPC_TIMER32_0->PR = 0;  // No prescaling - yet!
-    LPC_TIMER32_0->MCR = 2; // MR0R
-    LPC_TIMER32_0->MR[1] = 0; // Match start of cycle
-    LPC_TIMER32_0->MR[2] = 0; // Match start of cycle
-    LPC_TIMER32_0->EMR = 0x000003c2; // EMC1=EMC2=3=Toggle on match
-    LPC_TIMER32_0->CTCR = 0; // Timer mode
-    LPC_TIMER32_0->PWMC = 0; // Not PWM mode
+    Chip_Clock_EnablePeriphClock(SPEAKER_CLOCK);
+    Chip_SYSCTL_DeassertPeriphReset(SPEAKER_RESET);
+    SPEAKER_BASE->TCR = 2; // CRst
+    SPEAKER_BASE->TCR = 0; // CRst
+    SPEAKER_BASE->PR = SPEAKER_PRESCALE;
+    SPEAKER_BASE->MCR = 2; // MR0R
+    SPEAKER_BASE->MR[1] = 0; // Match start of cycle
+    SPEAKER_BASE->MR[2] = 0; // Match start of cycle
+    SPEAKER_BASE->EMR = 0x000003c2; // EMC1=EMC2=3=Toggle on match
+    SPEAKER_BASE->CTCR = 0; // Timer mode
+    SPEAKER_BASE->PWMC = 0; // Not PWM mode
 }
 
 
@@ -31,16 +31,16 @@ void speaker_on(int frequency)
 {
     LPC_IOCON->REG[IOCON_PIO2_6] = IOCON_FUNC1;
     LPC_IOCON->REG[IOCON_PIO2_7] = IOCON_FUNC1;
-    LPC_TIMER32_0->MR[0] = TIMER_PCLK / frequency;
-    LPC_TIMER32_0->TC = 0;
-    LPC_TIMER32_0->TCR = 1; // CEn
+    SPEAKER_BASE->MR[0] = TIMER_PCLK / (frequency * SPEAKER_PRESCALE);
+    SPEAKER_BASE->TC = 0;
+    SPEAKER_BASE->TCR = 1; // CEn
 }
 
 void speaker_off(void)
 {
     LPC_IOCON->REG[IOCON_PIO2_6] = 0;
     LPC_IOCON->REG[IOCON_PIO2_7] = 0;
-    LPC_TIMER32_0->TCR = 0; // Off
+    SPEAKER_BASE->TCR = 0; // Off
 }
 
 void beep_up(void)

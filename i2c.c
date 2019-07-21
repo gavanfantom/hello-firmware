@@ -64,10 +64,10 @@ bool i2c_busy(void)
     return i2c_state.result == I2C_BUSY;
 }
 
-void i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len)
+bool i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len)
 {
-    while (i2c_busy())
-        ;
+    if (i2c_busy())
+        return false;
 
     i2c_state.address = address << 1;
     i2c_state.header = header;
@@ -76,6 +76,8 @@ void i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len)
     i2c_state.offset = -1;
     i2c_state.result = I2C_BUSY;
     LPC_I2C->CONSET = I2C_I2CONSET_STA;
+
+    return true;
 }
 
 int i2c_result(void)

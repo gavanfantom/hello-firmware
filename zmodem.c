@@ -69,7 +69,7 @@
 #define ZF0_TESC8   0x80
 
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE ZMODEM_BUFFER_SIZE
 
 struct {
     bool active;
@@ -196,13 +196,14 @@ void zmodem_reinit(void)
         zmodem_close_file();
 }
 
-void zmodem_init(lfs_t *lfs, lfs_file_t *lfs_file)
+void *zmodem_init(lfs_t *lfs, lfs_file_t *lfs_file)
 {
     zstate.lfs = lfs;
     zstate.lfs_file = lfs_file;
     zstate.fileopen = false;
     zstate.debug = 0;
     zmodem_reinit();
+    return zstate.buffer;
 }
 
 int zmodem_progress(void)
@@ -218,6 +219,11 @@ int zmodem_progress(void)
 bool zmodem_active(void)
 {
     return zstate.active;
+}
+
+void zmodem_setactive(void)
+{
+    zstate.active = true;
 }
 
 int zmodem_debug(void)

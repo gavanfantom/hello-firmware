@@ -12,7 +12,7 @@
 
 void i2c_init(void);
 bool i2c_busy(void);
-void i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len);
+bool i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len);
 int i2c_result(void);
 
 #endif /* I2C_H */

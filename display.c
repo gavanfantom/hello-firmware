@@ -31,10 +31,16 @@ const uint8_t display_init_seq[] = {
 
 bool display_command(uint8_t command)
 {
-    i2c_transmit(ADDRESS, 0x80, &command, 1);
+    while (!i2c_transmit(ADDRESS, 0x80, &command, 1))
+        ;
     while (i2c_busy())
         ;
     return i2c_result() == I2C_SUCCESS;
+}
+
+bool display_start(uint8_t *data, int len)
+{
+    return i2c_transmit(ADDRESS, 0x40, data, len);
 }
 
 bool display_data(uint8_t *data, int len)

@@ -21,9 +21,8 @@ void write_string_large(char *s)
         font_putchar_large(*s);
 }
 
-void write_int(int val)
+void write_int_string(int val, char *result)
 {
-    char result[12];
     bool minus = (val < 0);
 
     if (val >= 0)
@@ -46,7 +45,20 @@ void write_int(int val)
         result[j] = result[i-j-1];
         result[i-j-1] = tmp;
     }
+}
+
+void write_int(int val)
+{
+    char result[12];
+    write_int_string(val, result);
     write_string(result);
+}
+
+void uart_write_int(int val)
+{
+    char result[12];
+    write_int_string(val, result);
+    uart_write_string(result);
 }
 
 void uart_write_hex(uint32_t val)
@@ -59,7 +71,7 @@ void uart_write_hex(uint32_t val)
     }
 }
 
-void uart_write_string(char *s)
+void uart_write_string(const char *s)
 {
     for (; *s != '\0'; s++)
         uart_transmit(*s);
