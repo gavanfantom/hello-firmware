@@ -13,6 +13,7 @@
 #define FRAME_CLOCK     _TIMER_CLOCK(FRAME_TIMER)
 #define FRAME_HANDLER _TIMER_HANDLER(FRAME_TIMER)
 #define FRAME_IRQN       _TIMER_IRQN(FRAME_TIMER)
+#define FRAME_MAX         _TIMER_MAX(FRAME_TIMER)
 #define FRAME_PRESCALE  128
 
 #define SPEAKER_BASE       _TIMER_BASE(SPEAKER_TIMER)
@@ -26,12 +27,14 @@
 #define _TIMER_CLOCK(x)   __TIMER_CLOCK(x)
 #define _TIMER_HANDLER(x) __TIMER_HANDLER(x)
 #define _TIMER_IRQN(x)    __TIMER_IRQN(x)
+#define _TIMER_MAX(x)     __TIMER_MAX(x)
 
 #define __TIMER_BASE(x, y)    LPC_TIMER##x##_##y
 #define __TIMER_RESET(x, y)   RESET_TIMER##y##_##x
 #define __TIMER_CLOCK(x, y)   SYSCTL_CLOCK_CT##x##B##y
 #define __TIMER_HANDLER(x, y) TIMER_##x##_##y##_IRQHandler
 #define __TIMER_IRQN(x, y)    TIMER_##x##_##y##_IRQn
+#define __TIMER_MAX(x, y)     ((1<<(x)) - 1)
 
 void frame_timer_init(void);
 void frame_timer_on(int frequency);

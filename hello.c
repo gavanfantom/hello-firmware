@@ -45,6 +45,7 @@ void usb_connected(void)
     LPC_IOCON->REG[IOCON_PIO1_6] = IOCON_FUNC1; // RXD
     LPC_IOCON->REG[IOCON_PIO0_7] = IOCON_FUNC1; // CTS
     LPC_IOCON->REG[IOCON_PIO1_5] = IOCON_FUNC1; // RTS
+    uart_init();
 }
 
 void usb_disconnected(void)
@@ -53,6 +54,7 @@ void usb_disconnected(void)
     LPC_IOCON->REG[IOCON_PIO1_6] = 0;    // Turn off pull up on RXD
     LPC_IOCON->REG[IOCON_PIO0_7] = 0;    // Turn off pull up on CTS
     LPC_IOCON->REG[IOCON_PIO1_5] = 0;    // Turn off pull up on RTS
+    uart_pause();
     zmodem_reinit();
     cmd_ptr = 0;
     unlock_file();
@@ -251,79 +253,300 @@ void draw_error(uint8_t *frame)
     }
 }
 
-struct {
-    int pos;
-    int rate;
+#define ACTION_ONESHOT 0
+#define ACTION_LOOP    1
+#define ACTION_REVERSE 2
+
+struct imageheader {
+    int version;
+    int data;
     int width;
+    int height;
+    int frame_rate;
+    int scroll_rate;
     int action;
-    int pause;
-    int blanks;
-} imagedata;
+    int left_blank;
+    int right_blank;
+    int left_blank_pattern;
+    int right_blank_pattern;
+    int left_pause;
+    int right_pause;
+    int start;
+};
 
-#define ACTION_LOOP 0
-#define ACTION_REVERSE 1
+struct imagestate {
+    int pos;
+};
 
-void image_load(const char *filename)
+struct videoheader {
+    int version;
+    int data;
+    int width;
+    int height;
+    int frames;
+    int frame_rate;
+    int action;
+    int start;
+};
+
+struct videostate {
+    bool started;
+    int frame;
+};
+
+struct {
+    int size;
+    union {
+        struct {
+            struct imageheader header;
+            struct imagestate state;
+        } image;
+        struct {
+            struct videoheader header;
+            struct videostate state;
+        } video;
+    };
+} filedata;
+
+#define DISPLAY_NOTHING 0
+#define DISPLAY_IMAGE 1
+#define DISPLAY_VIDEO 2
+
+int displaytype;
+
+void set_frame_rate(int frame_rate)
 {
-    imagedata.pos = 0;
-    imagedata.rate = 1;
-    imagedata.width = 256;
-    imagedata.action = ACTION_REVERSE;
-    imagedata.pause = 20;
-    imagedata.blanks = 0;
+    static int current_rate = 0;
+    if (frame_rate == current_rate)
+        return;
+    current_rate = frame_rate;
+    frame_timer_on(frame_rate);
+//    uart_write_string("Frame rate set to ");
+//    uart_write_int(frame_rate);
+//    uart_write_string("\r\n");
+}
+
+void stop_display(void)
+{
+    displaytype = DISPLAY_NOTHING;
+    lfs_file_close(&lfs, &file);
+    file_open = 0;
+    set_frame_rate(50);
+}
+
+void image_load(void)
+{
+    if (filedata.size < 8 + sizeof(filedata.image.header))
+        goto fail;
+
+    int ret = lfs_file_read(&lfs, &file, &filedata.image.header, sizeof(filedata.image.header));
+    if (ret < 0)
+        goto fail;
+
+    if (filedata.image.header.height != 64)
+        goto fail;
+
+    if (filedata.image.header.width * 8 + filedata.image.header.data > filedata.size)
+        goto fail;
+
+    filedata.image.state.pos = filedata.image.header.start;
+    set_frame_rate(filedata.image.header.frame_rate);
+
+    displaytype = DISPLAY_IMAGE;
+
+    return;
+
+    fail:
+        stop_display();
+        return;
+}
+
+void video_load(void)
+{
+    if (filedata.size < 8 + sizeof(filedata.video.header))
+        goto fail;
+
+    int ret = lfs_file_read(&lfs, &file, &filedata.video.header, sizeof(filedata.video.header));
+    if (ret < 0)
+        goto fail;
+
+    if (filedata.video.header.width != 128)
+        goto fail;
+
+    if (filedata.video.header.height != 64)
+        goto fail;
+
+    if (filedata.video.header.start < 0)
+        goto fail;
+
+    if (filedata.video.header.start >= filedata.video.header.frames)
+        goto fail;
+
+    if (filedata.video.header.frames * 1024 + filedata.video.header.data > filedata.size)
+        goto fail;
+
+    ret = lfs_file_seek(&lfs, &file, filedata.video.header.data + filedata.video.header.start * 1024, LFS_SEEK_SET);
+    if (ret < 0)
+        goto fail;
+
+    filedata.video.state.started = true;
+    filedata.video.state.frame = filedata.video.header.start;
+    set_frame_rate(filedata.video.header.frame_rate);
+
+    displaytype = DISPLAY_VIDEO;
+
+    return;
+
+    fail:
+        stop_display();
+        return;
+}
+
+void file_load(const char *filename)
+{
+    char magic[8];
+
     int ret = lfs_file_open(&lfs, &file, filename, LFS_O_RDONLY);
     if (ret)
         return;
+
+    displaytype = DISPLAY_NOTHING;
+    file_open = true;
+
     ret = lfs_file_size(&lfs, &file);
     if (ret < 0) {
-        lfs_file_close(&lfs, &file);
+        stop_display();
         return;
     }
-    imagedata.width = ret / 8;
-    file_open = true;
+
+    filedata.size = ret;
+
+    ret = lfs_file_read(&lfs, &file, magic, 8);
+    if (ret < 0) {
+        stop_display();
+        return;
+    }
+
+    if (memcmp(magic, "helloimg", 8) == 0)
+        image_load();
+    else if (memcmp(magic, "hellovid", 8) == 0)
+        video_load();
+    else
+        stop_display();
 }
 
 void start_display(void)
 {
-    image_load("name");
+    file_load("name");
 }
 
 void draw_image(uint8_t *frame)
 {
-    int offset = imagedata.pos;
+    int offset = filedata.image.state.pos;
+
+    int pos = filedata.image.state.pos;
+    if (pos < -filedata.image.header.left_blank)
+        pos = -filedata.image.header.left_blank;
+    if (pos > filedata.image.header.width + filedata.image.header.right_blank - 128)
+        pos = filedata.image.header.width + filedata.image.header.right_blank - 128;
+
+    offset = pos;
+
     if (offset < 0)
         offset = 0;
-    if (offset > imagedata.width - 128)
-        offset = imagedata.width - 128;
+
+    int datawidth;
+    if (pos >= 0)
+        datawidth = filedata.image.header.width - offset;
+    else
+        datawidth = 128 + pos;
+
+    if (datawidth > 128)
+        datawidth = 128;
+
+    int datapos = 0;
+    if (pos < 0)
+        datapos = 128-datawidth;
+
     for (int j = 0; j < 8; j++) {
         int ret;
-        ret = lfs_file_seek(&lfs, &file, offset + j*imagedata.width, LFS_SEEK_SET);
-        if (ret < 0) {
-            lfs_file_close(&lfs, &file);
-            file_open = 0;
-            return;
-        }
-        ret = lfs_file_read(&lfs, &file, frame + j*128, 128);
-        if (ret < 0) {
-            lfs_file_close(&lfs, &file);
-            file_open = 0;
-            return;
-        }
+        for (int i = 0; i < datapos; i++)
+            frame[i + j*128] = filedata.image.header.left_blank_pattern;
+        for (int i = datapos + datawidth; i < 128; i++)
+            frame[i + j*128] = filedata.image.header.right_blank_pattern;
+        ret = lfs_file_seek(&lfs, &file, filedata.image.header.data + offset + j*filedata.image.header.width, LFS_SEEK_SET);
+        if (ret < 0)
+            goto fail;
+        ret = lfs_file_read(&lfs, &file, frame + datapos + j*128, datawidth);
+        if (ret < 0)
+            goto fail;
     }
 #if 0
     cursor_ptr = 0;
     write_int(norxframes);
 #endif
 
-    imagedata.pos += imagedata.rate;
-    if (imagedata.pos < 0-imagedata.pause) {
-        imagedata.pos = 0;
-        imagedata.rate = -imagedata.rate;
+#if 0
+    cursor_ptr = 0;
+    write_int(pos);
+    cursor_ptr = 128;
+    write_int(datawidth);
+    cursor_ptr = 128*2;
+    write_int(datapos);
+#endif
+
+    filedata.image.state.pos += filedata.image.header.scroll_rate;
+    if (filedata.image.state.pos < 0-(filedata.image.header.left_pause + filedata.image.header.left_blank)) {
+        filedata.image.state.pos = -filedata.image.header.left_blank;
+        filedata.image.header.scroll_rate = -filedata.image.header.scroll_rate;
     }
-    if (imagedata.pos > imagedata.width - 128 +imagedata.pause) {
-        imagedata.pos = imagedata.width - 128;
-        imagedata.rate = -imagedata.rate;
+    if (filedata.image.state.pos > filedata.image.header.width - 128 + filedata.image.header.right_pause + filedata.image.header.right_blank) {
+        switch (filedata.image.header.action) {
+        case ACTION_ONESHOT:
+        default:
+            stop_display();
+            break;
+        case ACTION_LOOP:
+            filedata.image.state.pos = -filedata.image.header.left_blank;
+            break;
+        case ACTION_REVERSE:
+            filedata.image.state.pos = filedata.image.header.width - 128 + filedata.image.header.right_blank;
+            filedata.image.header.scroll_rate = -filedata.image.header.scroll_rate;
+            break;
+        }
     }
+
+    return;
+
+    fail:
+        stop_display();
+        return;
+}
+
+void draw_video(uint8_t *frame)
+{
+    int ret;
+    if (!filedata.video.state.started) {
+        ret = lfs_file_seek(&lfs, &file, filedata.video.header.data, LFS_SEEK_SET);
+        if (ret < 0)
+            goto fail;
+        filedata.video.state.started = true;
+        filedata.video.state.frame = 0;
+    }
+    ret = lfs_file_read(&lfs, &file, frame, 1024);
+    if (ret < 0)
+        goto fail;
+
+    filedata.video.state.frame++;
+    if (filedata.video.state.frame >= filedata.video.header.frames) {
+        /* XXX implement actions here */
+        filedata.video.state.started = false;
+    }
+    return;
+
+    fail:
+        stop_display();
+        return;
 }
 
 void FRAME_HANDLER(void)
@@ -337,8 +560,7 @@ void check_file_lock(void)
 {
     if (file_locked_request) {
         if (file_open) {
-            lfs_file_close(&lfs, &file);
-            file_open = false;
+            stop_display();
         }
         file_locked = true;
         file_locked_request = false;
@@ -457,6 +679,18 @@ void cmd_free(void)
     uart_write_string("%)\r\n");
 }
 
+void cmd_format(void)
+{
+    uart_write_string("Formatting filesystem... ");
+    lfs_unmount(&lfs);
+    lfs_format(&lfs, &cfg);
+    int err = lfs_mount(&lfs, &cfg);
+    if (err < 0)
+        uart_write_string("failed\r\n");
+    else
+        uart_write_string("done\r\n");
+}
+
 typedef struct {
     const char *command;
     void (*fn)(void);
@@ -470,6 +704,7 @@ static command cmd_table[] = {
     {"ls", &cmd_ls},
     {"rm", &cmd_rm},
     {"free", &cmd_free},
+    {"format", &cmd_format},
 };
 
 void process_command(void)
@@ -639,12 +874,12 @@ int main(void)
 //    spiflash_erase_chip();
 //    speaker_off();
 
+    set_frame_rate(50);
+
     start_display();
 
     bool usb_present = false;
     int norxframes = 0;
-
-    frame_timer_on(150);
 
     while (1) {
         check_file_lock();
@@ -655,7 +890,17 @@ int main(void)
             } else if (file_locked) {
                 draw_cli(screen_buf);
             } else if (file_open) {
-                draw_image(screen_buf);
+                switch (displaytype) {
+                case DISPLAY_IMAGE:
+                    draw_image(screen_buf);
+                    break;
+                case DISPLAY_VIDEO:
+                    draw_video(screen_buf);
+                    break;
+                default:
+                    draw_error(screen_buf);
+                    break;
+                }
             } else {
                 draw_error(screen_buf);
             }

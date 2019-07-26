@@ -18,7 +18,15 @@ void frame_timer_init(void)
 
 void frame_timer_on(int frequency)
 {
-    FRAME_BASE->MR[0] = TIMER_PCLK / (frequency * FRAME_PRESCALE);
+    uint32_t prescaler = 1;
+    uint32_t divider = TIMER_PCLK / frequency;
+    while (divider > FRAME_MAX) {
+        prescaler = prescaler * 2;
+        divider = divider / 2;
+    }
+    FRAME_BASE->TCR = 0; // Off
+    FRAME_BASE->MR[0] = divider;
+    FRAME_BASE->PR = prescaler - 1;
     FRAME_BASE->TC = 0;
     FRAME_BASE->TCR = 1; // CEn
 }
