@@ -10,9 +10,11 @@
 #define I2C_FAIL_ARBITRATION    4
 #define I2C_FAIL_NOTIMPLEMENTED 5
 
+typedef void (*i2c_fn)(void);
+
 void i2c_init(void);
 bool i2c_busy(void);
-bool i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len);
+bool i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len, i2c_fn fn);
 int i2c_result(void);
 
 #endif /* I2C_H */

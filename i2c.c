@@ -42,7 +42,6 @@ void i2c_init(void)
     NVIC_EnableIRQ(I2C0_IRQn);
 }
 
-
 volatile struct {
     uint8_t *data;
     int len;
@@ -50,6 +49,7 @@ volatile struct {
     int offset;
     int address;
     volatile int result;
+    i2c_fn fn;
 } i2c_state;
 
 #define I2C_SUCCESS             0
@@ -64,7 +64,7 @@ bool i2c_busy(void)
     return i2c_state.result == I2C_BUSY;
 }
 
-bool i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len)
+bool i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len, i2c_fn fn)
 {
     if (i2c_busy())
         return false;
@@ -75,6 +75,7 @@ bool i2c_transmit(uint8_t address, uint8_t header, uint8_t *data, int len)
     i2c_state.len = len;
     i2c_state.offset = -1;
     i2c_state.result = I2C_BUSY;
+    i2c_state.fn = fn;
     LPC_I2C->CONSET = I2C_I2CONSET_STA;
 
     return true;
@@ -115,6 +116,8 @@ void I2C0_IRQHandler(void)
             LPC_I2C->CONSET = I2C_I2CONSET_STO | I2C_I2CONSET_AA;
             LPC_I2C->CONCLR = I2C_I2CONCLR_SIC;
             i2c_state.result = I2C_SUCCESS;
+            if (i2c_state.fn)
+                i2c_state.fn();
         }
         break;
     case 0x20: // SLA+W has been transmitted, NACK has been received

@@ -32,6 +32,11 @@ char *cmd_buffer;
 int cmd_ptr = 0;
 int arg_ptr = 0;
 
+int contrast;
+bool contrast_changed;
+
+#define FIRST_FILE 2
+
 void unlock_file(void);
 
 bool usb_detect(void)
@@ -313,6 +318,7 @@ struct {
 #define DISPLAY_VIDEO 2
 
 int displaytype;
+int dir_offset;
 
 void set_frame_rate(int frame_rate)
 {
@@ -435,9 +441,93 @@ void file_load(const char *filename)
         stop_display();
 }
 
+int load_file_by_offset(int target)
+{
+    lfs_dir_t dir;
+    int err = lfs_dir_open(&lfs, &dir, "/");
+    if (err) {
+        return -1;
+    }
+    struct lfs_info info;
+    int last_fileno = 0;
+    int fileno;
+    for (fileno = 0; true; fileno++) {
+        int res  = lfs_dir_read(&lfs, &dir, &info);
+        if (res < 0) {
+            lfs_dir_close(&lfs, &dir);
+            fileno = res;
+            break;
+        }
+        if (res == 0) {
+            if (target == FIRST_FILE) {
+                fileno = 0;
+                break;
+            }
+            fileno = -1; // This will be incremented on continue
+            if (target < 0) {
+                target = last_fileno;
+            } else {
+                target = FIRST_FILE;
+            }
+            lfs_dir_rewind(&lfs, &dir);
+            continue;
+        }
+
+        if (fileno < target)
+            continue;
+
+        last_fileno = fileno;
+
+        if (fileno == target) {
+            if (info.type != LFS_TYPE_REG) {
+                target++;
+                continue;
+            }
+
+            file_load(info.name);
+            break;
+        }
+    }
+
+    lfs_dir_close(&lfs, &dir);
+    return fileno;
+}
+
+void next_file(void)
+{
+    dir_offset = load_file_by_offset(dir_offset + 1);
+}
+
+void prev_file(void)
+{
+    dir_offset--;
+    if (dir_offset < FIRST_FILE)
+        dir_offset = -1;
+    int res = load_file_by_offset(dir_offset);
+    if (dir_offset < FIRST_FILE)
+        dir_offset = res;
+}
+
 void start_display(void)
 {
-    file_load("name");
+    dir_offset = load_file_by_offset(dir_offset);
+//    file_load("name");
+}
+
+void contrast_up(void)
+{
+    contrast += 0x10;
+    if (contrast > 0xff)
+        contrast = 0xff;
+    contrast_changed = true;
+}
+
+void contrast_down(void)
+{
+    contrast -= 0x10;
+    if (contrast < 1)
+        contrast = 1;
+    contrast_changed = true;
 }
 
 void draw_image(uint8_t *frame)
@@ -552,7 +642,8 @@ void draw_video(uint8_t *frame)
 void FRAME_HANDLER(void)
 {
     FRAME_BASE->IR = 15;
-    display_start(display_buf, 1024);
+    display_start(display_buf, 1024, contrast_changed?contrast:-1);
+    contrast_changed = false;
     draw = true;
 }
 
@@ -840,6 +931,9 @@ int main(void)
     speaker_off();
 #endif
 
+    contrast = 0x7f;
+    contrast_changed = false;
+
     spi_init();
     spiflash_reset();
 
@@ -876,10 +970,14 @@ int main(void)
 
     set_frame_rate(50);
 
+    dir_offset = FIRST_FILE;
     start_display();
 
     bool usb_present = false;
     int norxframes = 0;
+    int old_buttons = 0;
+    int buttons = 0;
+    int buttons_count = 0;
 
     while (1) {
         check_file_lock();
@@ -914,6 +1012,25 @@ int main(void)
                   if (uart_state == STATE_ZMODEM)
                       zmodem_timeout();
             }
+        }
+
+        if (buttons_count)
+            buttons_count--;
+        else {
+            old_buttons = buttons;
+            buttons = button_state();
+            int pressed = buttons & ~old_buttons;
+            if (pressed) {
+                buttons_count = 10;
+            }
+            if (pressed & BUTTON_LEFT)
+                prev_file();
+            if (pressed & BUTTON_RIGHT)
+                next_file();
+            if (pressed & BUTTON_UP)
+                contrast_up();
+            if (pressed & BUTTON_DOWN)
+                contrast_down();
         }
 
         bool usb = usb_detect();
