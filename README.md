@@ -20,6 +20,7 @@ You will also need the following software installed to flash the firmware:
 
 * lpc21isp
 * Python
+* PyUSB
 
 ## Building the firmware
 
