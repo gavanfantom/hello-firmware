@@ -3,9 +3,17 @@
 
 This is where you will find the firmware for the hello mini badge.
 
-You will need the following software installed to build:
+This badge is your companion whenever you want to show your name, nickname, avatar or callsign.
 
-* a working gcc-arm-embedded toolchain.
+It has a small 128x64 pixel monochrome (1bpp) display. On this display it can display images (static or scrolling) and video.
+
+It has 8 megabytes of storage for you to play with. What will you display?
+
+## Prerequisites
+
+You will need the following software installed to build the firmware:
+
+* a working gcc-arm-embedded toolchain
 * GNU make
 
 You will also need the following software installed to flash the firmware:
@@ -15,7 +23,7 @@ You will also need the following software installed to flash the firmware:
 
 ## Building the firmware
 
-* Just type "make"
+* Just type `make`
 
 ## Flashing the firmware on Linux
 
