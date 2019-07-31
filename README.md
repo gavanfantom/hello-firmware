@@ -36,7 +36,7 @@ This defaults to writing to ttyUSB0. If the badge is connected to a different tt
 
 ## Flashing the firmware manually on other operating systems
 
-If you are using Windows, use FlashMagic to program the firmware.
+If you are using Windows, use FlashMagic to program the firmware. The file `hello.bin` is what you need to flash.
 
 Before you can flash the firmware, you need to run:
 
