@@ -444,6 +444,8 @@ void file_load(const char *filename)
 int load_file_by_offset(int target)
 {
     lfs_dir_t dir;
+    if (file_open)
+        stop_display();
     int err = lfs_dir_open(&lfs, &dir, "/");
     if (err) {
         return -1;
@@ -455,13 +457,12 @@ int load_file_by_offset(int target)
         int res  = lfs_dir_read(&lfs, &dir, &info);
         if (res < 0) {
             lfs_dir_close(&lfs, &dir);
-            fileno = res;
-            break;
+            return res;
         }
         if (res == 0) {
             if (target == FIRST_FILE) {
-                fileno = 0;
-                break;
+                lfs_dir_close(&lfs, &dir);
+                return 0;
             }
             fileno = -1; // This will be incremented on continue
             if (target < 0) {
@@ -484,13 +485,11 @@ int load_file_by_offset(int target)
                 continue;
             }
 
+            lfs_dir_close(&lfs, &dir);
             file_load(info.name);
-            break;
+            return fileno;
         }
     }
-
-    lfs_dir_close(&lfs, &dir);
-    return fileno;
 }
 
 void next_file(void)
