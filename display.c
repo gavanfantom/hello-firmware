@@ -44,7 +44,6 @@ const uint8_t display_init_seq[] = {
     0xa0 | HORIZONTAL_FLIP,
     0xc0 | (VERTICAL_FLIP << 3),
     0xda, 0x02 | (COM_ALT << 4) | (COM_LR_REMAP << 5),
-    0xa3, 0x00, 0x40, /* Set vertical scroll area */
     0x81, DEFAULT_CONTRAST,
     0xa4,       /* Disable entire display on */
     0xa6 | DISPLAY_INVERT,
