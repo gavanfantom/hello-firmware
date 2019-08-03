@@ -105,6 +105,11 @@ bool display_start(uint8_t *data, int len, int contrast)
     return i2c_transmit(ADDRESS, 0x40, data, len, display_callback);
 }
 
+bool display_busy(void)
+{
+    return i2c_busy();
+}
+
 bool display_data(uint8_t *data, int len)
 {
     i2c_transmit(ADDRESS, 0x40, data, len, NULL);

@@ -221,6 +221,11 @@ bool zmodem_active(void)
     return zstate.active;
 }
 
+bool zmodem_waiting(void)
+{
+    return zstate.timeouts != 0;
+}
+
 void zmodem_setactive(void)
 {
     zstate.active = true;
@@ -632,6 +637,7 @@ void zmodem_process_header(void)
     ZDEBUG("Header received\n");
     ZDEBUG("Type: %x\n", zstate.header[0]);
     ZDEBUG("Contents: %x %x %x %x\n", zstate.header[1], zstate.header[2], zstate.header[3], zstate.header[4]);
+    zstate.timeouts = 0;
     switch (zstate.header[0]) {
     case ZRQINIT:
         zmodem_process_zrqinit();

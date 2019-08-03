@@ -22,6 +22,8 @@ bool draw;
 bool file_locked;
 bool file_locked_request;
 
+#define IDLE_FRAME_RATE 50
+
 #define CMD_BUFFER_SIZE ZMODEM_BUFFER_SIZE
 
 #define STATE_CLI 0
@@ -34,6 +36,7 @@ int arg_ptr = 0;
 
 int contrast;
 bool contrast_changed;
+bool safe_start;
 
 #define FIRST_FILE 2
 
@@ -220,6 +223,14 @@ void zmodem_draw_progress(uint8_t *frame)
             frame[128*4 + 14 + i] = (i < progress)?255:128;
         }
     }
+    if (zmodem_waiting()) {
+        for (int i = 0; i < 4; i++) {
+            frame[128*7 + 64 + (i + 2)] = 255;
+            frame[128*7 + 64 - (i + 2)] = 255;
+            frame[128*6 + 64 + (i + 2)] = 255;
+            frame[128*6 + 64 - (i + 2)] = 255;
+        }
+    }
 }
 
 void draw_cli(uint8_t *frame)
@@ -335,9 +346,10 @@ void set_frame_rate(int frame_rate)
 void stop_display(void)
 {
     displaytype = DISPLAY_NOTHING;
-    lfs_file_close(&lfs, &file);
+    if (file_open)
+        lfs_file_close(&lfs, &file);
     file_open = 0;
-    set_frame_rate(50);
+    set_frame_rate(IDLE_FRAME_RATE);
 }
 
 void image_load(void)
@@ -444,6 +456,8 @@ void file_load(const char *filename)
 int load_file_by_offset(int target)
 {
     lfs_dir_t dir;
+    if (safe_start)
+        return 0;
     if (file_open)
         stop_display();
     int err = lfs_dir_open(&lfs, &dir, "/");
@@ -510,7 +524,6 @@ void prev_file(void)
 void start_display(void)
 {
     dir_offset = load_file_by_offset(dir_offset);
-//    file_load("name");
 }
 
 void contrast_up(void)
@@ -641,9 +654,27 @@ void draw_video(uint8_t *frame)
 void FRAME_HANDLER(void)
 {
     FRAME_BASE->IR = 15;
+    if (display_busy())
+        return;
     display_start(display_buf, 1024, contrast_changed?contrast:-1);
     contrast_changed = false;
     draw = true;
+}
+
+void check_zmodem(void)
+{
+    if (!zmodem_active()) {
+        uart_state = STATE_CLI;
+        timeout_timer_off();
+        unlock_file();
+    }
+}
+
+void TIMEOUT_HANDLER(void)
+{
+    TIMEOUT_BASE->IR = 15;
+    zmodem_timeout();
+    check_zmodem();
 }
 
 void check_file_lock(void)
@@ -677,6 +708,7 @@ void cmd_rz(void)
     lock_file();
     zmodem_setactive();
     uart_state = STATE_ZMODEM;
+    timeout_timer_on(ZMODEM_TIMEOUT);
 }
 
 void cmd_ls(void)
@@ -872,13 +904,24 @@ void process_byte(uint8_t byte)
         }
         break;
     case STATE_ZMODEM:
+        timeout_timer_reset();
         zrx_byte(byte);
-        if (!zmodem_active()) {
-            uart_state = STATE_CLI;
-            unlock_file();
-        }
+        check_zmodem();
         break;
     }
+}
+
+void uart_rxhandler(uint8_t byte)
+{
+    process_byte(byte);
+}
+
+void set_interrupt_priorities(void)
+{
+    NVIC_SetPriority(UART0_IRQn, 0);
+    NVIC_SetPriority(TIMEOUT_IRQN, 0);
+    NVIC_SetPriority(I2C0_IRQn, 1);
+    NVIC_SetPriority(FRAME_IRQN, 1);
 }
 
 int main(void)
@@ -894,6 +937,8 @@ int main(void)
         usb_connected();
     else
         usb_disconnected();
+
+    set_interrupt_priorities();
 
     uart_init();
     cmd_buffer = zmodem_init(&lfs, &file);
@@ -948,6 +993,7 @@ int main(void)
     }
 
     frame_timer_init();
+    timeout_timer_init();
     i2c_init();
     display_init();
     display_setposition(0, 0);
@@ -967,13 +1013,17 @@ int main(void)
 //    spiflash_erase_chip();
 //    speaker_off();
 
-    set_frame_rate(50);
+    if (button_state() & BUTTON_CENTRE)
+        safe_start = true;
+    else
+        safe_start = false;
+
+    set_frame_rate(IDLE_FRAME_RATE);
 
     dir_offset = FIRST_FILE;
     start_display();
 
     bool usb_present = false;
-    int norxframes = 0;
     int old_buttons = 0;
     int buttons = 0;
     int buttons_count = 0;
@@ -984,7 +1034,7 @@ int main(void)
             draw = false;
             if (zmodem_active()) {
                 zmodem_draw_progress(screen_buf);
-            } else if (file_locked) {
+            } else if (file_locked || safe_start) {
                 draw_cli(screen_buf);
             } else if (file_open) {
                 switch (displaytype) {
@@ -1004,13 +1054,6 @@ int main(void)
 
             display_buf = screen_buf;
             screen_buf = (screen_buf == frame1)?frame2:frame1;
-
-            /* XXX Once we have a timer, we can improve on this */
-            if (++norxframes > 1500) {
-                  norxframes = 0;
-                  if (uart_state == STATE_ZMODEM)
-                      zmodem_timeout();
-            }
         }
 
         if (buttons_count)
@@ -1042,12 +1085,6 @@ int main(void)
             usb_disconnected();
         }
         usb_present = usb;
-        uint8_t byte;
-
-        while (uart_receive(&byte)) {
-            norxframes = 0;
-            process_byte(byte);
-        }
     }
 
     return 0;

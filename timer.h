@@ -7,6 +7,7 @@
 
 #define FRAME_TIMER   16,0
 #define SPEAKER_TIMER 32,0
+#define TIMEOUT_TIMER 16,1
 
 #define FRAME_BASE       _TIMER_BASE(FRAME_TIMER)
 #define FRAME_RESET     _TIMER_RESET(FRAME_TIMER)
@@ -15,6 +16,14 @@
 #define FRAME_IRQN       _TIMER_IRQN(FRAME_TIMER)
 #define FRAME_MAX         _TIMER_MAX(FRAME_TIMER)
 #define FRAME_PRESCALE  128
+
+#define TIMEOUT_BASE       _TIMER_BASE(TIMEOUT_TIMER)
+#define TIMEOUT_RESET     _TIMER_RESET(TIMEOUT_TIMER)
+#define TIMEOUT_CLOCK     _TIMER_CLOCK(TIMEOUT_TIMER)
+#define TIMEOUT_HANDLER _TIMER_HANDLER(TIMEOUT_TIMER)
+#define TIMEOUT_IRQN       _TIMER_IRQN(TIMEOUT_TIMER)
+#define TIMEOUT_MAX         _TIMER_MAX(TIMEOUT_TIMER)
+#define TIMEOUT_PRESCALE  128
 
 #define SPEAKER_BASE       _TIMER_BASE(SPEAKER_TIMER)
 #define SPEAKER_RESET     _TIMER_RESET(SPEAKER_TIMER)
@@ -39,5 +48,10 @@
 void frame_timer_init(void);
 void frame_timer_on(int frequency);
 void frame_timer_off(void);
+
+void timeout_timer_init(void);
+void timeout_timer_on(int period);
+void timeout_timer_reset(void);
+void timeout_timer_off(void);
 
 #endif /* TIMER_H */
