@@ -31,7 +31,7 @@ void speaker_on(int frequency)
 {
     LPC_IOCON->REG[IOCON_PIO2_6] = IOCON_FUNC1;
     LPC_IOCON->REG[IOCON_PIO2_7] = IOCON_FUNC1;
-    SPEAKER_BASE->MR[0] = TIMER_PCLK / (frequency * SPEAKER_PRESCALE);
+    SPEAKER_BASE->MR[0] = TIMER_PCLK / (frequency * 2 * SPEAKER_PRESCALE);
     SPEAKER_BASE->TC = 0;
     SPEAKER_BASE->TCR = 1; // CEn
 }
@@ -45,27 +45,23 @@ void speaker_off(void)
 
 void beep_up(void)
 {
-    speaker_on(1000);
-    for (volatile int i = 0; i < 0x10000; i++)
-        ;
+    speaker_on(500);
+    delay(20);
     speaker_off();
 
-    speaker_on(1500);
-    for (volatile int i = 0; i < 0x10000; i++)
-        ;
+    speaker_on(750);
+    delay(20);
     speaker_off();
 }
 
 void beep_down(void)
 {
-    speaker_on(1500);
-    for (volatile int i = 0; i < 0x10000; i++)
-        ;
+    speaker_on(750);
+    delay(20);
     speaker_off();
 
-    speaker_on(1000);
-    for (volatile int i = 0; i < 0x10000; i++)
-        ;
+    speaker_on(500);
+    delay(20);
     speaker_off();
 }
 

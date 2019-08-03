@@ -23,6 +23,7 @@ bool file_locked;
 bool file_locked_request;
 
 #define IDLE_FRAME_RATE 50
+#define SYSTIME_FREQUENCY 1000
 
 #define CMD_BUFFER_SIZE ZMODEM_BUFFER_SIZE
 
@@ -86,6 +87,39 @@ void buttons_init(void)
 int button_state(void)
 {
     return ~LPC_GPIO3->DATA[DATAREG] & 0x1f;
+}
+
+#define DEBOUNCE_TIME 10
+#define FIRST_REPEAT_TIME 300
+#define REPEAT_TIME 100
+
+int button_event(void)
+{
+    static int buttons = 0;
+    static uint32_t last_changed[5] = {0, 0, 0, 0, 0};
+    static uint32_t last_event[5] = {0, 0, 0, 0, 0};
+    int new_buttons = button_state();
+    int changed = new_buttons ^ buttons;
+    uint32_t now = systime_timer_get();
+
+    for (int i = 0; i < 5; i++) {
+        if (changed & (1<<i)) {
+            if (now - last_changed[i] >= DEBOUNCE_TIME) {
+                last_changed[i] = now;
+                last_event[i] = now;
+                buttons = (buttons & ~(1<<i)) | (new_buttons & (1<<i));
+            }
+        }
+        if (buttons & (1<<i)) {
+            int threshold = (last_changed[i] == last_event[i])?FIRST_REPEAT_TIME:REPEAT_TIME;
+            if (now - last_event[i] >= threshold) {
+                last_event[i] += threshold;
+                changed |= (1<<i);
+            }
+        }
+    }
+
+    return buttons & changed;
 }
 
 /* Autodetect block_count if we ever want to use a different flash chip */
@@ -813,6 +847,11 @@ void cmd_format(void)
         uart_write_string("done\r\n");
 }
 
+void cmd_reset(void)
+{
+    NVIC_SystemReset();
+}
+
 typedef struct {
     const char *command;
     void (*fn)(void);
@@ -827,6 +866,7 @@ static command cmd_table[] = {
     {"rm", &cmd_rm},
     {"free", &cmd_free},
     {"format", &cmd_format},
+    {"reset", &cmd_reset},
 };
 
 void process_command(void)
@@ -933,12 +973,16 @@ int main(void)
 
     LPC_IOCON->REG[IOCON_PIO1_2] = IOCON_FUNC1 | IOCON_DIGMODE_EN;    // Turn off pull up on USBDETECT
 //    LPC_IOCON->REG[IOCON_PIO0_1] = 0;    // Turn off pull up on MCU_ISP
+
     if (usb_detect())
         usb_connected();
     else
         usb_disconnected();
 
     set_interrupt_priorities();
+
+    systime_timer_init();
+    systime_timer_on(SYSTIME_FREQUENCY);
 
     uart_init();
     cmd_buffer = zmodem_init(&lfs, &file);
@@ -947,31 +991,25 @@ int main(void)
     buttons_init();
 
 #if 1
-    speaker_on(1000);
-    for (volatile int i = 0; i < 0x10000; i++)
-        ;
+    speaker_on(500);
+    delay(20);
     speaker_off();
 #endif
 
-//    for (int j = 0; j < 10; j++)
-    for (volatile int i = 0; i < 0x100000; i++)
-        ;
+    delay(500);
 
 #if 1
-    speaker_on(1500);
-    for (volatile int i = 0; i < 0x10000; i++)
-        ;
+    speaker_on(750);
+    delay(20);
     speaker_off();
 #endif
 
 //    uart_write_string("Hello\r\n");
 
 #if 1
-    for (volatile int i = 0; i < 0x10000; i++)
-        ;
-    speaker_on(2000);
-    for (volatile int i = 0; i < 0x10000; i++)
-        ;
+    delay(20);
+    speaker_on(1000);
+    delay(20);
     speaker_off();
 #endif
 
@@ -1009,14 +1047,11 @@ int main(void)
      * erase the entire filesystem exists
      */
 
-//    speaker_on(2000);
+//    speaker_on(1000);
 //    spiflash_erase_chip();
 //    speaker_off();
 
-    if (button_state() & BUTTON_CENTRE)
-        safe_start = true;
-    else
-        safe_start = false;
+    safe_start = (button_state() & BUTTON_CENTRE)?true:false;
 
     set_frame_rate(IDLE_FRAME_RATE);
 
@@ -1024,9 +1059,6 @@ int main(void)
     start_display();
 
     bool usb_present = false;
-    int old_buttons = 0;
-    int buttons = 0;
-    int buttons_count = 0;
 
     while (1) {
         check_file_lock();
@@ -1056,24 +1088,15 @@ int main(void)
             screen_buf = (screen_buf == frame1)?frame2:frame1;
         }
 
-        if (buttons_count)
-            buttons_count--;
-        else {
-            old_buttons = buttons;
-            buttons = button_state();
-            int pressed = buttons & ~old_buttons;
-            if (pressed) {
-                buttons_count = 10;
-            }
-            if (pressed & BUTTON_LEFT)
-                prev_file();
-            if (pressed & BUTTON_RIGHT)
-                next_file();
-            if (pressed & BUTTON_UP)
-                contrast_up();
-            if (pressed & BUTTON_DOWN)
-                contrast_down();
-        }
+        int pressed = button_event();
+        if (pressed & BUTTON_LEFT)
+            prev_file();
+        if (pressed & BUTTON_RIGHT)
+            next_file();
+        if (pressed & BUTTON_UP)
+            contrast_up();
+        if (pressed & BUTTON_DOWN)
+            contrast_down();
 
         bool usb = usb_detect();
         if (!usb_present && usb) {

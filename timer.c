@@ -74,3 +74,45 @@ void timeout_timer_off(void)
     TIMEOUT_BASE->TCR = 0; // Off
 }
 
+void systime_timer_init(void)
+{
+    Chip_Clock_EnablePeriphClock(SYSTIME_CLOCK);
+    Chip_SYSCTL_DeassertPeriphReset(FRAME_RESET);
+    SYSTIME_BASE->TCR = 2; // CRst
+    SYSTIME_BASE->TCR = 0; // CRst
+    SYSTIME_BASE->PR = SYSTIME_PRESCALE-1;
+    SYSTIME_BASE->MCR = 0; // No match
+    SYSTIME_BASE->CTCR = 0; // Timer mode
+    SYSTIME_BASE->PWMC = 0; // Not PWM mode
+}
+
+void systime_timer_on(int frequency)
+{
+    uint32_t divider = TIMER_PCLK / frequency;
+    SYSTIME_BASE->TCR = 0; // Off
+    SYSTIME_BASE->PR = divider - 1;
+    SYSTIME_BASE->TC = 0;
+    SYSTIME_BASE->TCR = 1; // CEn
+}
+
+void systime_timer_reset(void)
+{
+    SYSTIME_BASE->TC = 0;
+}
+
+uint32_t systime_timer_get(void)
+{
+    return SYSTIME_BASE->TC;
+}
+
+void systime_timer_off(void)
+{
+    SYSTIME_BASE->TCR = 0; // Off
+}
+
+void delay(int ms)
+{
+    uint32_t now = systime_timer_get();
+    while (systime_timer_get() - now < ms)
+        ;
+}
