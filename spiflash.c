@@ -4,12 +4,12 @@
 #include "spiflash.h"
 #include "spi.h"
 #include "write.h"
+#include "timer.h"
 
 void spiflash_reset(void)
 {
     LPC_GPIO->DATA[DATAREG] = LPC_GPIO->DATA[DATAREG] & ~(1<<11);
-    for (volatile int i = 0; i < 1000; i++)
-        ;
+    delay(1);
     LPC_GPIO->DATA[DATAREG] = LPC_GPIO->DATA[DATAREG] | (1<<11);
 }
 
