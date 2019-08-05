@@ -2,6 +2,7 @@
 
 #include "hello.h"
 #include "font.h"
+#include "frame.h"
 #include <string.h>
 
 static const uint8_t font[] = {
@@ -102,9 +103,6 @@ static const uint8_t font[] = {
 	0x08, 0x08, 0x2A, 0x1C, 0x08,// ->
 	0x08, 0x1C, 0x2A, 0x08, 0x08 // <-
 };
-
-uint8_t *screen_buf;
-int cursor_ptr;
 
 void font_putchar(char ch)
 {

@@ -4,9 +4,9 @@
 #include "write.h"
 #include "font.h"
 #include "uart.h"
+#include "frame.h"
 #include <string.h>
 
-uint8_t *screen_buf;
 int cursor_ptr;
 
 void write_string(char *s)

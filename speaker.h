@@ -6,6 +6,7 @@
 void speaker_init(void);
 void speaker_on(int frequency);
 void speaker_off(void);
+void beep(int frequency, int duration);
 void beep_up(void);
 void beep_down(void);
 

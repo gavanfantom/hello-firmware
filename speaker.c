@@ -43,25 +43,22 @@ void speaker_off(void)
     SPEAKER_BASE->TCR = 0; // Off
 }
 
+void beep(int frequency, int duration)
+{
+    speaker_on(frequency);
+    delay(duration);
+    speaker_off();
+}
+
 void beep_up(void)
 {
-    speaker_on(500);
-    delay(20);
-    speaker_off();
-
-    speaker_on(750);
-    delay(20);
-    speaker_off();
+    beep(500, 20);
+    beep(750, 20);
 }
 
 void beep_down(void)
 {
-    speaker_on(750);
-    delay(20);
-    speaker_off();
-
-    speaker_on(500);
-    delay(20);
-    speaker_off();
+    beep(750, 20);
+    beep(500, 20);
 }
 

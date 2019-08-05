@@ -127,6 +127,7 @@ void display_setposition(uint8_t col, uint8_t row)
 
 bool display_init(void)
 {
+    i2c_init();
     for (int i = 0; i < ARRAY_SIZE(display_init_seq); i++)
         if (!display_command(display_init_seq[i]))
             return false;

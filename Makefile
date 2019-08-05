@@ -2,7 +2,9 @@
 
 DEVICE ?= /dev/ttyUSB0
 
-SRCS = hello.c startup_ARMCM0.S system.c display.c font.c i2c.c speaker.c spi.c spiflash.c uart.c write.c zmodem.c crc.c timer.c
+SRCS = hello.c startup_ARMCM0.S system.c display.c font.c i2c.c speaker.c
+SRCS += spi.c spiflash.c uart.c write.c zmodem.c crc.c timer.c cli.c
+SRCS += lock.c fault.c button.c file.c frame.c fs.c
 LITTLEFS = littlefs
 LITTLEFS_SRCS = lfs.c lfs_util.c
 LIBDIR = lpc/src

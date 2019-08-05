@@ -3,6 +3,8 @@
 #ifndef WRITE_H
 #define WRITE_H
 
+extern int cursor_ptr;
+
 void write_string(char *s);
 void write_string_large(char *s);
 void write_int(int val);

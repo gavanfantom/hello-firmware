@@ -3,7 +3,6 @@
 #ifndef FONT_H
 #define FONT_H
 
-extern uint8_t *screen_buf;
 extern int cursor_ptr;
 
 void font_putchar(char ch);
