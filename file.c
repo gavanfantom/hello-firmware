@@ -6,6 +6,7 @@
 #include "fs.h"
 #include "frame.h"
 #include <string.h>
+#include "menu.h"
 
 #define FIRST_FILE 2
 
@@ -28,6 +29,7 @@ void stop_display(void)
     if (file_open)
         lfs_file_close(&fs_lfs, &fs_file);
     file_open = 0;
+    menu = MENU_NONE;
     set_frame_rate(IDLE_FRAME_RATE);
 }
 
@@ -183,6 +185,35 @@ int load_file_by_offset(int target)
             return fileno;
         }
     }
+}
+
+void file_load_update_offset(const char *filename)
+{
+    lfs_dir_t dir;
+    if (file_open)
+        stop_display();
+    if (lfs_dir_open(&fs_lfs, &dir, "/"))
+        return;
+    struct lfs_info info;
+    int fileno;
+    for (fileno = 0; true; fileno++) {
+        int res = lfs_dir_read(&fs_lfs, &dir, &info);
+        if (res < 0) {
+            lfs_dir_close(&fs_lfs, &dir);
+            break;
+        }
+        if (info.type != LFS_TYPE_REG)
+            continue;
+
+        if (strcmp(info.name, filename) == 0) {
+            dir_offset = fileno;
+            break;
+        }
+    }
+
+    lfs_dir_close(&fs_lfs, &dir);
+
+    file_load(filename);
 }
 
 void next_file(void)

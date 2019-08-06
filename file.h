@@ -71,6 +71,7 @@ void image_load(void);
 void video_load(void);
 
 void file_load(const char *filename);
+void file_load_update_offset(const char *filename);
 
 int load_file_by_offset(int target);
 void next_file(void);

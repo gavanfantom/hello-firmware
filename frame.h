@@ -17,9 +17,6 @@ extern int displaytype;
 
 void set_frame_rate(int frame_rate);
 
-void contrast_up(void);
-void contrast_down(void);
-
 void frame_update(void);
 
 #endif /* FRAME_H */

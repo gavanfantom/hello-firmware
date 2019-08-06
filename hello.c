@@ -3,13 +3,6 @@
 #include "hello.h"
 #include "uart.h"
 #include "speaker.h"
-#include "spi.h"
-#include "spiflash.h"
-#include "i2c.h"
-#include "display.h"
-#include "font.h"
-#include "write.h"
-#include <string.h>
 #include "lfs.h"
 #include "fs.h"
 #include "zmodem.h"
@@ -19,6 +12,8 @@
 #include "button.h"
 #include "file.h"
 #include "frame.h"
+#include "menu.h"
+#include "settings.h"
 
 #define SYSTIME_FREQUENCY 1000
 
@@ -90,7 +85,7 @@ int main(void)
     beep(1000, 20);
 
     fs_init();
-
+    settings_load();
     frame_init();
 
     /* This may be useful until a better way to
@@ -111,14 +106,22 @@ int main(void)
         frame_update();
 
         int pressed = button_event();
-        if (pressed & BUTTON_LEFT)
-            prev_file();
-        if (pressed & BUTTON_RIGHT)
-            next_file();
-        if (pressed & BUTTON_UP)
-            contrast_up();
-        if (pressed & BUTTON_DOWN)
-            contrast_down();
+        if (menu != MENU_NONE) {
+            menu_action(pressed);
+        } else {
+            if (pressed & BUTTON_LEFT)
+                prev_file();
+            if (pressed & BUTTON_RIGHT)
+                next_file();
+            if (pressed & BUTTON_UP)
+                settings_change_brightness_up();
+            if (pressed & BUTTON_DOWN)
+                settings_change_brightness_down();
+            if (pressed & BUTTON_CENTRE) {
+                stop_display();
+                menu_enter();
+            }
+        }
 
         bool usb = usb_detect();
         if (!usb_present && usb) {

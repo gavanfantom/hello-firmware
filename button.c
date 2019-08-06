@@ -43,7 +43,8 @@ int button_event(void)
                 last_changed[i] = now;
                 last_event[i] = now;
                 buttons = (buttons & ~(1<<i)) | (new_buttons & (1<<i));
-            }
+            } else
+                changed &= ~(1<<i);
         }
         if (buttons & (1<<i)) {
             int threshold = (last_changed[i] == last_event[i])?FIRST_REPEAT_TIME:REPEAT_TIME;

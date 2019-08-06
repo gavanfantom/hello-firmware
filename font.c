@@ -157,3 +157,7 @@ void font_putchar_large(char ch)
     cursor_ptr += BLANK_WIDTH;
 }
 
+void font_setpos(int column, int row)
+{
+    cursor_ptr = row * 128 + column * 6;
+}

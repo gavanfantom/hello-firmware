@@ -9,13 +9,13 @@
 
 int cursor_ptr;
 
-void write_string(char *s)
+void write_string(const char *s)
 {
     for (; *s != '\0'; s++)
         font_putchar(*s);
 }
 
-void write_string_large(char *s)
+void write_string_large(const char *s)
 {
     for (; *s != '\0'; s++)
         font_putchar_large(*s);

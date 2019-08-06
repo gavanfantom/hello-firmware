@@ -8,8 +8,11 @@
 #include "fs.h"
 #include "zmodem.h"
 #include "write.h"
+#include "font.h"
 #include "timer.h"
 #include "lock.h"
+#include "menu.h"
+#include "settings.h"
 
 uint8_t frame1[1024];
 uint8_t frame2[1024];
@@ -17,13 +20,8 @@ uint8_t *screen_buf;
 uint8_t *display_buf;
 bool draw;
 
-int contrast;
-bool contrast_changed;
-
 void frame_init(void)
 {
-    contrast = 0x7f;
-    contrast_changed = false;
     screen_buf = frame1;
     display_buf = frame1;
     draw = false;
@@ -118,22 +116,6 @@ void set_frame_rate(int frame_rate)
 //    uart_write_string("Frame rate set to ");
 //    uart_write_int(frame_rate);
 //    uart_write_string("\r\n");
-}
-
-void contrast_up(void)
-{
-    contrast += 0x10;
-    if (contrast > 0xff)
-        contrast = 0xff;
-    contrast_changed = true;
-}
-
-void contrast_down(void)
-{
-    contrast -= 0x10;
-    if (contrast < 1)
-        contrast = 1;
-    contrast_changed = true;
 }
 
 void draw_image(uint8_t *frame)
@@ -247,11 +229,16 @@ void draw_video(uint8_t *frame)
 
 void FRAME_HANDLER(void)
 {
+    static int contrast = 0;
     FRAME_BASE->IR = 15;
     if (display_busy())
         return;
-    display_start(display_buf, 1024, contrast_changed?contrast:-1);
-    contrast_changed = false;
+    int new_contrast = settings_brightness();
+    if (new_contrast == contrast)
+        new_contrast = -1;
+    else
+        contrast = new_contrast;
+    display_start(display_buf, 1024, new_contrast);
     draw = true;
 }
 
@@ -264,6 +251,8 @@ void frame_update(void)
         zmodem_draw_progress(screen_buf);
     } else if (file_locked || safe_start) {
         draw_cli(screen_buf);
+    } else if (menu != MENU_NONE) {
+        draw_menu(screen_buf);
     } else if (file_open) {
         switch (displaytype) {
         case DISPLAY_IMAGE:

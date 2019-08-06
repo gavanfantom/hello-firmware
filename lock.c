@@ -3,6 +3,7 @@
 #include "hello.h"
 #include "uart.h"
 #include "file.h"
+#include "menu.h"
 
 bool file_locked;
 bool file_locked_request;
@@ -23,7 +24,7 @@ void check_file_lock(void)
         file_locked_request = false;
         uart_resume();
     }
-    if (!file_locked && !file_open) {
+    if (!file_locked && !file_open && (menu == MENU_NONE)) {
         start_display();
     }
 }

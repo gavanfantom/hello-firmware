@@ -9,6 +9,8 @@
 #define BUTTON_RIGHT  0x08
 #define BUTTON_CENTRE 0x10
 
+#define BUTTONS 5
+
 void button_init(void);
 int button_state(void);
 int button_event(void);
