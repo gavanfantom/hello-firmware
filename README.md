@@ -68,11 +68,11 @@ an alpha channel. Stick to black and white, as that's all the display is capable
 
 The badge can display a video file that is exactly 128x64 pixels.
 
-Suppose you have a series of image files (in PNG or similar format) named `videoframe0000.png`, `videoframe0001.png`, and so on. You can convert a series of image files (in PNG or similar format) like this:
+Suppose you have a series of image files (in PNG or similar format) named `videoframe0000.png`, `videoframe0001.png`, and so on. You can convert them to a video like this:
 
 `./hello-convert.py --video videoframe video.vid`
 
-If you have a video file, you can split it into frames using ffmpeg:
+If you only have a video file which is not yet split into individual images, you can split it into frames using ffmpeg:
 
 `ffmpeg -i video.mkv -vf scale=w=128:h=64:force_original_aspect_ratio=increase,crop=128:64 videoframe%04d.png`
 
