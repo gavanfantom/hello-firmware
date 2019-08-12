@@ -1,13 +1,15 @@
 #!/usr/bin/python3
 
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 import os
 import sys
 import argparse
 import glob
 
 parser = argparse.ArgumentParser(description='Convert image files for the hello badge')
-parser.add_argument('--video', action='store_true')
+group = parser.add_mutually_exclusive_group()
+group.add_argument('--text', action='store_true')
+group.add_argument('--video', action='store_true')
 parser.add_argument('--framerate', default=50, type=int)
 parser.add_argument('--scrollrate', default=1, type=int)
 parser.add_argument('--reverse', action='store_true')
@@ -17,6 +19,8 @@ parser.add_argument('--leftblankpattern', default=0, type=int)
 parser.add_argument('--rightblankpattern', default=0, type=int)
 parser.add_argument('--leftpause', default=None, type=int)
 parser.add_argument('--rightpause', default=None, type=int)
+parser.add_argument('--font', default='OpenSans-Regular.ttf')
+parser.add_argument('--fontsize', default=None, type=int)
 parser.add_argument('--start', default=0, type=int)
 parser.add_argument('input')
 parser.add_argument('output')
@@ -101,8 +105,8 @@ class videoheader:
 
 
 class image:
-    def __init__(self, name, threshold=64):
-        self.im = Image.open(name)
+    def __init__(self, image, threshold=64):
+        self.im = image
         self.threshold = threshold
 
     def width(self):
@@ -139,7 +143,7 @@ if args.video:
     data = bytearray()
     for file in files:
         print("Processing file {}".format(file))
-        im = image(file)
+        im = image(Image.open(file))
         if im.height() != 64:
             print("Height must be exactly 64 pixels")
             sys.exit(1)
@@ -156,7 +160,29 @@ if args.video:
                          start_point = args.start)
 
 else:
-    image = image(args.input)
+    if args.text:
+        if args.fontsize:
+            size = args.fontsize
+        else:
+            testsize = 1
+            h = 0
+            while h <= 64:
+                font = ImageFont.truetype(args.font, testsize)
+                (w, h) = font.getsize(args.input)
+                if h <= 64:
+                    size = testsize
+                testsize += 1
+
+        font = ImageFont.truetype(args.font, size)
+        (w, h) = font.getsize(args.input)
+        if w < 128:
+            w = 128
+        im = Image.new('L', (w, 64), 0)
+        draw = ImageDraw.Draw(im)
+        draw.text((0, 32-(h/2)), args.input, 255, font)
+        image = image(im)
+    else:
+        image = image(Image.open(args.input))
 
     if image.height() != 64:
         print("Height must be exactly 64 pixels")
