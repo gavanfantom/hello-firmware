@@ -53,13 +53,38 @@ After flashing the firmware, you need to run:
 
 The badge can display an image file that is at least 128 pixels wide and exactly 64 pixels high.
 
-A script will convert a PNG or similar file into a suitable file format.
+PNG and similar file formats can be converted like this:
+
+`./hello-convert.py image.png image.img`
+
+If you want to reverse the scrolling direction at the end (ideal for short text such as names), us this:
+
+`./hello-convert.py --reverse image.png image.img`
+
+You can use any image editor to create your image. Once you've created an image, save it as a PNG without
+an alpha channel. Stick to black and white, as that's all the display is capable of.
 
 ### Video files
 
 The badge can display a video file that is exactly 128x64 pixels.
 
-A script will convert a series of PNG or similar files into a suitable file format.
+Suppose you have a series of image files (in PNG or similar format) named `videoframe0000.png`, `videoframe0001.png`, and so on. You can convert a series of image files (in PNG or similar format) like this:
+
+`./hello-convert.py --video videoframe video.vid`
+
+If you have a video file, you can split it into frames using ffmpeg:
+
+`ffmpeg -i video.mkv -vf scale=w=128:h=64:force_original_aspect_ratio=increase,crop=128:64 videoframe%04d.png`
+
+If you know the frame rate of your video source, you can set it like this:
+
+`./hello-convert.py --video --framerate 25 videoframe video.vid`
+
+You can use any animation or video editor to create your video. Once you've created a video, if your software is
+able to, save it directly as a series of PNG files without an alpha channel. Stick to black and white, as that's
+all the display is capable of. If your software is unable to export as PNG files, use ffmpeg to convert, as shown
+above.
+
 
 ## Command line and file transfer
 
