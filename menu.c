@@ -26,6 +26,9 @@
 #define SELECTION_FILE_ACTION_SHOW    0
 #define SELECTION_FILE_ACTION_DELETE  1
 
+#define SELECTION_EDIT_ACTION_SAVE    0
+#define SELECTION_EDIT_ACTION_DISCARD 1
+
 #define SCROLL_COUNT       (IDLE_FRAME_RATE / 3)
 #define SCROLL_COUNT_END   (IDLE_FRAME_RATE * 3)
 
@@ -38,6 +41,10 @@ int offset;
 int line_offset;
 int line_scroll_rate;
 int line_scroll_count;
+int character;
+
+#define EDIT_BUFFER_LEN 128
+uint8_t edit_buffer[EDIT_BUFFER_LEN];
 
 typedef void (*draw_handler)(uint8_t *frame);
 typedef void (*action_handler)(void);
@@ -59,12 +66,29 @@ void menu_init(void)
     line_offset = 0;
     line_scroll_rate = 1;
     line_scroll_count = SCROLL_COUNT_END;
+    character = 0;
 }
 
 void invert_line(uint8_t *frame, int line)
 {
     for (int i = 0; i < 128; i++)
         frame[line*128 + i] ^= 0xff;
+}
+
+void invert_columns(uint8_t *frame, int start, int width)
+{
+    if (start < 0) {
+        width += start;
+        start = 0;
+    }
+    if (start >= 128)
+        return;
+    if (start + width >= 128) {
+        width = 127 - start;
+    }
+    for (int i = start; i < start + width; i++)
+        for (int j = 0; j < 8; j++)
+            frame[j*128 + i] ^= 0xff;
 }
 
 void draw_menu_main(uint8_t *frame)
@@ -168,6 +192,23 @@ void draw_menu_file(uint8_t *frame)
     lfs_dir_close(&fs_lfs, &dir);
 }
 
+void draw_menu_edit(uint8_t *frame)
+{
+    if (selection < offset)
+        offset = selection;
+    if (selection > offset + FONT_LARGE_CHARACTERS_PER_SCREEN - 1)
+        offset = selection - FONT_LARGE_CHARACTERS_PER_SCREEN + 1;
+    screen_buf = frame;
+    clear_screen();
+    for (int i = 0; i < FONT_LARGE_CHARACTERS_PER_SCREEN; i++) {
+        if ((offset + i) <= selection_max) {
+            cursor_ptr = i * FONT_LARGE_TOTAL_WIDTH;
+            font_putchar_large(edit_buffer[offset + i]);
+        }
+    }
+    invert_columns(frame, (selection - offset) * FONT_LARGE_TOTAL_WIDTH, FONT_LARGE_TOTAL_WIDTH);
+}
+
 void draw_menu_file_actions(uint8_t *frame)
 {
     lfs_dir_t dir;
@@ -189,6 +230,22 @@ void draw_menu_file_actions(uint8_t *frame)
     write_string("Show");
     font_setpos(2, 3);
     write_string("Delete");
+    invert_line(frame, selection+2);
+}
+
+void draw_menu_edit_actions(uint8_t *frame)
+{
+    char name[LINE_MAX+1];
+    memset(name, 0, LINE_MAX+1);
+    strncpy(name, (char *)edit_buffer, LINE_MAX);
+    screen_buf = frame;
+    clear_screen();
+    font_setpos(0, 0);
+    write_string(name);
+    font_setpos(2, 2);
+    write_string("Save");
+    font_setpos(2, 3);
+    write_string("Discard");
     invert_line(frame, selection+2);
 }
 
@@ -248,6 +305,18 @@ void menu_enter_file(void)
         menu = MENU_FILE;
 }
 
+void menu_enter_edit(void)
+{
+    selection = 0;
+    selection_min = 0;
+    selection_max = 0;
+    offset = 0;
+    memset(edit_buffer, ' ', EDIT_BUFFER_LEN);
+    character = 'A';
+    edit_buffer[0] = character;
+    menu = MENU_EDIT;
+}
+
 void menu_return_to_file(void)
 {
     int offset = line_offset;
@@ -256,16 +325,26 @@ void menu_return_to_file(void)
     line_offset = offset;
 }
 
+void menu_return_to_edit(void)
+{
+    offset = 0;
+    selection = 0;
+    selection_min = 0;
+    selection_max = 0;
+    for (int i = 0; i < EDIT_BUFFER_LEN; i++) {
+        if (edit_buffer[i] != ' ')
+            selection_max = i;
+    }
+    character = edit_buffer[selection];
+    menu = MENU_EDIT;
+}
+
 void menu_enter_about(void)
 {
     menu = MENU_ABOUT;
     selection = 0;
     selection_min = 0;
     selection_max = 0;
-}
-
-void menu_enter_edit(void)
-{
 }
 
 void menu_enter_settings(void)
@@ -358,6 +437,103 @@ void menu_select_settings_actions(void)
     }
 }
 
+#define NAMELEN 128
+#define ITERATION_MAX 100
+
+void menu_edit_action_save(void)
+{
+    char name[NAMELEN];
+    int max = 0;
+    for (int i = 0; i < EDIT_BUFFER_LEN; i++) {
+        if (edit_buffer[i] != ' ')
+            max = i;
+    }
+    if (max == 0) {
+        menu_enter();
+        return;
+    }
+    int namelen = max+1;
+    if (namelen > NAMELEN-1)
+        namelen = NAMELEN-1;
+    name[NAMELEN-1] = '\0';
+    strncpy(name, (char *)edit_buffer, namelen);
+    int len = strlen(name);
+    for (int i = 0; i < ITERATION_MAX; i++) {
+        if (i > 0) {
+            char result[12];
+            write_int_string(i, result);
+            int l = strlen(result);
+            int p = len;
+            if (p+l+1 >= NAMELEN-1)
+                p = NAMELEN-l-2;
+            name[p] = '.';
+            strcpy((char *)name+p+1, (char *)result);
+        }
+        int err = lfs_file_open(&fs_lfs, &fs_file, name, LFS_O_CREAT | LFS_O_EXCL);
+        if (err == LFS_ERR_EXIST)
+            continue;
+        if (err < 0)
+            break;
+        uint8_t magic[] = "helloimg";
+        struct imageheader hdr;
+        hdr.version = 0;
+        hdr.data = sizeof(hdr) + 8;
+        hdr.width = (max+1) * FONT_LARGE_TOTAL_WIDTH;
+        hdr.height = 64;
+        hdr.frame_rate = 50;
+        hdr.scroll_rate = 1;
+        hdr.action = ACTION_REVERSE;
+        hdr.left_blank = 0;
+        hdr.right_blank = 0;
+        hdr.left_blank_pattern = 0;
+        hdr.right_blank_pattern = 0;
+        hdr.left_pause = 20;
+        hdr.right_pause = 20;
+        hdr.start = 0;
+        lfs_file_write(&fs_lfs, &fs_file, magic, 8);
+        lfs_file_write(&fs_lfs, &fs_file, &hdr, sizeof(hdr));
+        for (int i = 0; i < 8; i++) {
+            for (int c = 0; c <= max; c++) {
+                for (int j = 0; j < 5; j++) {
+                    uint8_t value = font_getpixel(edit_buffer[c], j, i)?255:0;
+                    uint8_t data[FONT_LARGE_PIXEL_WIDTH];
+                    memset(data, value, FONT_LARGE_PIXEL_WIDTH);
+                    lfs_file_write(&fs_lfs, &fs_file, data, FONT_LARGE_PIXEL_WIDTH);
+                }
+                uint8_t data[FONT_LARGE_BLANK_WIDTH];
+                memset(data, 0, FONT_LARGE_BLANK_WIDTH);
+                lfs_file_write(&fs_lfs, &fs_file, data, FONT_LARGE_BLANK_WIDTH);
+            }
+        }
+        /* XXX actually write the image data here */
+        lfs_file_close(&fs_lfs, &fs_file);
+        file_load_update_offset(name);
+        menu_action_exit();
+        return;
+    }
+}
+
+void menu_select_edit_actions(void)
+{
+    menu = MENU_EDIT_ACTIONS;
+    selection = 0;
+    selection_min = 0;
+    selection_max = 1;
+}
+
+void menu_select_edit_do_action(void)
+{
+    switch (selection) {
+    case SELECTION_EDIT_ACTION_SAVE:
+        menu_edit_action_save();
+        break;
+    case SELECTION_EDIT_ACTION_DISCARD:
+        menu_enter();
+        selection = SELECTION_MAIN_EDIT;
+        break;
+    }
+}
+
 void menu_action_exit(void)
 {
     menu = MENU_NONE;
@@ -393,6 +569,42 @@ void menu_select_down(void)
 {
     if (selection < selection_max)
         selection++;
+}
+
+void menu_select_edit_left(void)
+{
+    if (selection > selection_min) {
+        selection--;
+        character = edit_buffer[selection];
+    }
+}
+
+void menu_select_edit_right(void)
+{
+    if (selection < selection_max) {
+        selection++;
+        character = edit_buffer[selection];
+    } else if (selection_max < (EDIT_BUFFER_LEN-1)) {
+        selection++;
+        selection_max++;
+        edit_buffer[selection] = character;
+    }
+}
+
+void menu_select_edit_up(void)
+{
+    character++;
+    if (character > FONT_CHAR_MAX)
+        character = FONT_CHAR_MIN;
+    edit_buffer[selection] = character;
+}
+
+void menu_select_edit_down(void)
+{
+    character--;
+    if (character < FONT_CHAR_MIN)
+        character = FONT_CHAR_MAX;
+    edit_buffer[selection] = character;
 }
 
 void menu_select_main(void)
@@ -457,6 +669,8 @@ draw_handler menu_draw[MENU_MAX]= {
     draw_menu_file,
     draw_menu_file_actions,
     draw_menu_settings,
+    draw_menu_edit,
+    draw_menu_edit_actions,
 };
 
 action_handler menu_actions[MENU_MAX][BUTTONS] = {
@@ -499,6 +713,22 @@ action_handler menu_actions[MENU_MAX][BUTTONS] = {
         menu_enter,
         menu_select_settings_actions,
         menu_select_settings,
+    },
+    /* MENU_EDIT */
+    {
+        menu_select_edit_up,
+        menu_select_edit_down,
+        menu_select_edit_left,
+        menu_select_edit_right,
+        menu_select_edit_actions,
+    },
+    /* MENU_EDIT_ACTIONS */
+    {
+        menu_select_up,
+        menu_select_down,
+        menu_return_to_edit,
+        menu_action_none,
+        menu_select_edit_do_action,
     },
 };
 

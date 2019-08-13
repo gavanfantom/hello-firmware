@@ -126,8 +126,17 @@ void font_putchar(char ch)
         cursor_ptr = 0;
 }
 
-#define PIXEL_WIDTH 5
-#define BLANK_WIDTH 3
+bool font_getpixel(char ch, int column, int row)
+{
+    if (ch < FONT_CHAR_MIN)
+        return false;
+    if (ch > FONT_CHAR_MAX)
+        return false;
+    uint8_t c = ch - 32;
+
+    uint8_t col = font[5*c+column];
+    return col & (1<<row);
+}
 
 void font_putchar_large(char ch)
 {
@@ -147,14 +156,14 @@ void font_putchar_large(char ch)
         uint8_t col = font[5*c+i];
         for (int b = 0; b < 8; b++) {
             uint8_t byte = (col & (1<<b))?255:0;
-            memset(screen_buf + cursor_ptr + b*256, byte, PIXEL_WIDTH);
+            memset(screen_buf + cursor_ptr + b*128, byte, FONT_LARGE_PIXEL_WIDTH);
         }
-        cursor_ptr += PIXEL_WIDTH;
+        cursor_ptr += FONT_LARGE_PIXEL_WIDTH;
     }
     for (int b = 0; b < 8; b++) {
-        memset(screen_buf + cursor_ptr + b*256, 0, BLANK_WIDTH);
+        memset(screen_buf + cursor_ptr + b*128, 0, FONT_LARGE_BLANK_WIDTH);
     }
-    cursor_ptr += BLANK_WIDTH;
+    cursor_ptr += FONT_LARGE_BLANK_WIDTH;
 }
 
 void font_setpos(int column, int row)

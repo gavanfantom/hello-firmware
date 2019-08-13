@@ -12,5 +12,6 @@ void uart_write_int(int val);
 void uart_write_hex(uint32_t val);
 void uart_write_string(const char *s);
 void clear_screen(void);
+void write_int_string(int val, char *result);
 
 #endif /* WRITE_H */

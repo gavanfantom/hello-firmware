@@ -9,8 +9,10 @@
 #define MENU_FILE         3
 #define MENU_FILE_ACTIONS 4
 #define MENU_SETTINGS     5
+#define MENU_EDIT         6
+#define MENU_EDIT_ACTIONS 7
 
-#define MENU_MAX          5
+#define MENU_MAX          7
 
 extern int menu;
 
