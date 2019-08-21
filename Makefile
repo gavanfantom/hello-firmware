@@ -18,11 +18,13 @@ LINKER_SCRIPT = LPC1115.ld
 SRCS += $(addprefix $(LITTLEFS)/,$(LITTLEFS_SRCS))
 SRCS += $(patsubst %,$(LIBDIR)/%,$(LIBSRCS))
 
+VERSION=$(shell git describe --tags --always --abbrev=1 --match "v*")
+
 DEBUG_OPTS = -g3 -gdwarf-2 -gstrict-dwarf
 OPTS = -Os
 TARGET_ARCH = -mcpu=cortex-m0 -mthumb -mfloat-abi=soft
 INCLUDE = -I. -Ilpc/inc -I$(LITTLEFS)
-CFLAGS = -ffunction-sections -fdata-sections -Wall -Werror $(DEBUG_OPTS) $(OPTS) $(INCLUDE) -DCORE_M0
+CFLAGS = -ffunction-sections -fdata-sections -Wall -Werror $(DEBUG_OPTS) $(OPTS) $(INCLUDE) -DCORE_M0 -DHELLO_VERSION=\"$(VERSION)\"
 ASFLAGS = -ffunction-sections -fdata-sections -Wall -Werror $(DEBUG_OPTS) $(OPTS) $(INCLUDE) -D__STARTUP_CLEAR_BSS -D__HEAP_SIZE=0x400
 LDFLAGS = -T $(LINKER_SCRIPT) $(DEBUG_OPTS) --specs=nano.specs -Wl,--gc-sections
 

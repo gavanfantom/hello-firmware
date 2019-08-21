@@ -5,7 +5,6 @@
 #include "button.h"
 #include "write.h"
 #include "font.h"
-#include "version.h"
 #include "settings.h"
 #include "lfs.h"
 #include "fs.h"
@@ -110,7 +109,7 @@ void draw_menu_main(uint8_t *frame)
 void draw_menu_about(uint8_t *frame)
 {
     clear_screen();
-    write_string("hello version " HELLO_VERSION "\n");
+    write_string("hello " HELLO_VERSION "\n");
     write_string("Your name in style\n");
     write_string("Use the serial port\n");
     write_string("8N1 RTS/CTS press >a<\n");
