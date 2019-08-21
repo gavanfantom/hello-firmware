@@ -9,6 +9,8 @@ It has a small 128x64 pixel monochrome (1bpp) display. On this display it can di
 
 It has 8 megabytes of storage for you to play with. What will you display?
 
+If your badge already has firmware on it, you can skip the section on building and flashing firmware.
+
 ## Prerequisites
 
 You will need the following software installed to build the firmware:
@@ -21,6 +23,12 @@ You will also need the following software installed to flash the firmware:
 * lpc21isp
 * Python
 * PyUSB
+
+The following software will be useful for creating and converting media:
+
+* Python
+* Python Image Library (PIL / Pillow)
+* Open Sans font (fonts-open-sans)
 
 ## Building the firmware
 
