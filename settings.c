@@ -2,11 +2,14 @@
 
 #include "hello.h"
 #include "settings.h"
+#include "lfs.h"
+#include "fs.h"
 
 struct settings {
     uint8_t beep;
     uint8_t battery;
     uint8_t brightness;
+    int default_file;
 } settings;
 
 bool settings_beep(void)
@@ -24,9 +27,19 @@ int settings_battery(void)
     return settings.battery;
 }
 
+int settings_default_file(void)
+{
+    return settings.default_file;
+}
+
 void settings_change_beep(void)
 {
     settings.beep = !settings.beep;
+}
+
+void settings_set_default_file(int file)
+{
+    settings.default_file = file;
 }
 
 #define BRIGHTNESS_STEP 0x10
@@ -65,13 +78,27 @@ void settings_change_battery(void)
 
 void settings_save(void)
 {
-    /* XXX write settings file */
+    int ret = lfs_file_open(&fs_lfs, &fs_file, ".settings", LFS_O_WRONLY | LFS_O_CREAT);
+    if (ret)
+        return;
+
+    ret = lfs_file_write(&fs_lfs, &fs_file, &settings, sizeof(settings));
+
+    lfs_file_close(&fs_lfs, &fs_file);
 }
 
 void settings_load(void)
 {
-    /* XXX check for settings file */
     settings.beep = true;
     settings.brightness = 0x7f;
     settings.battery = BATTERY_ON;
+    settings.default_file = 0;
+
+    int ret = lfs_file_open(&fs_lfs, &fs_file, ".settings", LFS_O_RDONLY);
+    if (ret)
+        return;
+
+    ret = lfs_file_read(&fs_lfs, &fs_file, &settings, sizeof(settings));
+
+    lfs_file_close(&fs_lfs, &fs_file);
 }

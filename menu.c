@@ -23,8 +23,9 @@
 #define SELECTION_SETTINGS_BATTERY    2
 #define SELECTION_SETTINGS_SAVE       3
 
-#define SELECTION_FILE_ACTION_SHOW    0
-#define SELECTION_FILE_ACTION_DELETE  1
+#define SELECTION_FILE_ACTION_SHOW         0
+#define SELECTION_FILE_ACTION_SET_DEFAULT  1
+#define SELECTION_FILE_ACTION_DELETE       2
 
 #define SELECTION_EDIT_ACTION_SAVE    0
 #define SELECTION_EDIT_ACTION_DISCARD 1
@@ -53,7 +54,6 @@ action_handler menu_actions[MENU_MAX][BUTTONS];
 draw_handler      menu_draw[MENU_MAX];
 
 void menu_action_exit(void);
-char *menu_find_file(lfs_dir_t *dir, struct lfs_info *info, int selection);
 void menu_return_to_file(void);
 
 void menu_init(void)
@@ -125,24 +125,6 @@ void draw_menu_about(uint8_t *frame)
 
 #define LINE_MAX 21
 
-void menu_file_select(void)
-{
-}
-
-char *menu_read_dirent(lfs_dir_t *dir, struct lfs_info *info)
-{
-    while (1) {
-        int res = lfs_dir_read(&fs_lfs, dir, info);
-        if (res != 1)
-            return NULL;
-        if (info->type != LFS_TYPE_REG)
-            continue;
-//        if (info->name[0] == '.')
-//            continue;
-        return info->name;
-    }
-}
-
 void draw_menu_file(uint8_t *frame)
 {
     lfs_dir_t dir;
@@ -158,10 +140,10 @@ void draw_menu_file(uint8_t *frame)
     if (selection > offset + 7)
         offset = selection - 7;
     for (int i = 0; i < offset; i++) {
-        menu_read_dirent(&dir, &info);
+        file_read_dirent(&dir, &info, false);
     }
     for (int i = 0; i < 8; i++) {
-        char *name = menu_read_dirent(&dir, &info);
+        char *name = file_read_dirent(&dir, &info, false);
         if (!name)
             break;
         int len = strlen(name);
@@ -213,7 +195,7 @@ void draw_menu_file_actions(uint8_t *frame)
 {
     lfs_dir_t dir;
     struct lfs_info info;
-    char *name = menu_find_file(&dir, &info, file);
+    char *name = file_find(&dir, &info, file, false);
     if (!name) {
         menu_return_to_file();
         return;
@@ -229,6 +211,8 @@ void draw_menu_file_actions(uint8_t *frame)
     font_setpos(2, 2);
     write_string("Show");
     font_setpos(2, 3);
+    write_string("Set as default");
+    font_setpos(2, 4);
     write_string("Delete");
     invert_line(frame, selection+2);
 }
@@ -288,21 +272,16 @@ void menu_action_none(void)
 
 void menu_enter_file(void)
 {
-    lfs_dir_t dir;
-    struct lfs_info info;
-    if (lfs_dir_open(&fs_lfs, &dir, "/"))
-        return;
-    selection = 0;
-    selection_min = 0;
-    selection_max = -1;
-    line_offset = 0;
-    line_scroll_rate = 1;
-    line_scroll_count = SCROLL_COUNT_END;
-    while (menu_read_dirent(&dir, &info))
-        selection_max++;
-    lfs_dir_close(&fs_lfs, &dir);
-    if (selection_max >= 0)
+    int max = file_count(false) - 1;
+    if (max >= 0) {
+        selection = 0;
+        selection_min = 0;
+        selection_max = max;
+        line_offset = 0;
+        line_scroll_rate = 1;
+        line_scroll_count = SCROLL_COUNT_END;
         menu = MENU_FILE;
+    }
 }
 
 void menu_enter_edit(void)
@@ -355,27 +334,25 @@ void menu_enter_settings(void)
     selection_max = 3;
 }
 
-char *menu_find_file(lfs_dir_t *dir, struct lfs_info *info, int fileno)
-{
-    char *name = NULL;
-    if (lfs_dir_open(&fs_lfs, dir, "/"))
-        return NULL;
-    for (int i = 0; i <= fileno; i++) {
-        name = menu_read_dirent(dir, info);
-        if (!name)
-            break;
-    }
-    lfs_dir_close(&fs_lfs, dir);
-    return name;
-}
-
 void menu_select_file(void)
 {
     lfs_dir_t dir;
     struct lfs_info info;
-    const char *name = menu_find_file(&dir, &info, selection);
+    const char *name = file_find(&dir, &info, selection, false);
     if (name) {
         file_load_update_offset(name);
+        menu_action_exit();
+    }
+}
+
+void menu_select_file_default(void)
+{
+    lfs_dir_t dir;
+    struct lfs_info info;
+    const char *name = file_find(&dir, &info, selection, false);
+    if (name) {
+        file_set_default(name);
+        settings_save();
         menu_action_exit();
     }
 }
@@ -384,7 +361,7 @@ void menu_delete_file(void)
 {
     lfs_dir_t dir;
     struct lfs_info info;
-    const char *name = menu_find_file(&dir, &info, file);
+    const char *name = file_find(&dir, &info, file, false);
     lfs_remove(&fs_lfs, name);
 }
 
@@ -394,7 +371,7 @@ void menu_select_file_actions(void)
     file = selection;
     selection = 0;
     selection_min = 0;
-    selection_max = 1;
+    selection_max = 2;
 }
 
 void menu_select_file_do_action(void)
@@ -403,6 +380,12 @@ void menu_select_file_do_action(void)
     case SELECTION_FILE_ACTION_SHOW:
         selection = file;
         menu_select_file();
+        /* Just in case the menu is still around... */
+        selection = SELECTION_FILE_ACTION_SHOW;
+        break;
+    case SELECTION_FILE_ACTION_SET_DEFAULT:
+        selection = file;
+        menu_select_file_default();
         /* Just in case the menu is still around... */
         selection = SELECTION_FILE_ACTION_SHOW;
         break;
@@ -418,6 +401,7 @@ void menu_select_settings(void)
     switch (selection) {
     case SELECTION_SETTINGS_SAVE:
         settings_save();
+        menu_action_exit();
         break;
     }
 }

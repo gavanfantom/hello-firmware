@@ -14,6 +14,7 @@
 #include "frame.h"
 #include "menu.h"
 #include "settings.h"
+#include "battery.h"
 
 #define SYSTIME_FREQUENCY 1000
 
@@ -49,6 +50,7 @@ void set_interrupt_priorities(void)
     NVIC_SetPriority(TIMEOUT_IRQN, 0);
     NVIC_SetPriority(I2C0_IRQn, 1);
     NVIC_SetPriority(FRAME_IRQN, 1);
+    NVIC_SetPriority(ADC_IRQn, 3);
 }
 
 int main(void)
@@ -77,6 +79,10 @@ int main(void)
 
     speaker_init();
     button_init();
+    battery_init();
+
+    fs_init();
+    settings_load();
 
     beep(500, 20);
     delay(500);
@@ -84,8 +90,6 @@ int main(void)
     delay(20);
     beep(1000, 20);
 
-    fs_init();
-    settings_load();
     frame_init();
 
     /* This may be useful until a better way to

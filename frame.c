@@ -13,6 +13,7 @@
 #include "lock.h"
 #include "menu.h"
 #include "settings.h"
+#include "battery.h"
 
 uint8_t frame1[1024];
 uint8_t frame2[1024];
@@ -227,6 +228,40 @@ void draw_video(uint8_t *frame)
         return;
 }
 
+#define BATTERY_PIXELS 20
+#define BATTERY_WIDTH (BATTERY_PIXELS + 6)
+
+void draw_battery(uint8_t *frame)
+{
+    int battery = battery_status();
+    if (battery < BATTERY_EMPTY)
+        battery = BATTERY_EMPTY;
+    if (battery > BATTERY_FULL)
+        battery = BATTERY_FULL;
+    battery = battery - BATTERY_EMPTY;
+    battery = battery * BATTERY_PIXELS / (BATTERY_FULL - BATTERY_EMPTY);
+    int settings = settings_battery();
+    if (settings == BATTERY_OFF)
+        return;
+    if (settings == BATTERY_WHENLOW)
+        if (battery < BATTERY_THRESHOLD)
+            return;
+    int offset = 128 - BATTERY_WIDTH;
+    frame[offset++] = 0x3c;
+    frame[offset++] = 0x24;
+    frame[offset++] = 0xe7;
+    frame[offset++] = 0x81;
+    for (int i = 0; i < BATTERY_PIXELS; i++) {
+        if (i < (BATTERY_PIXELS - battery))
+            frame[offset + i] = 0x81;
+        else
+            frame[offset + i] = 0xbd;
+    }
+    offset += BATTERY_PIXELS;
+    frame[offset++] = 0x81;
+    frame[offset++] = 0xff;
+}
+
 void FRAME_HANDLER(void)
 {
     static int contrast = 0;
@@ -268,6 +303,8 @@ void frame_update(void)
     } else {
         draw_error(screen_buf);
     }
+    draw_battery(screen_buf);
+    battery_poll();
 
     display_buf = screen_buf;
     screen_buf = (screen_buf == frame1)?frame2:frame1;

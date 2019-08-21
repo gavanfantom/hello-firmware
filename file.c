@@ -7,8 +7,7 @@
 #include "frame.h"
 #include <string.h>
 #include "menu.h"
-
-#define FIRST_FILE 2
+#include "settings.h"
 
 bool file_open;
 struct filedata filedata;
@@ -17,7 +16,7 @@ bool safe_start;
 
 void file_init(bool safe)
 {
-    dir_offset = FIRST_FILE;
+    dir_offset = settings_default_file();
     file_open = false;
     safe_start = safe;
     start_display();
@@ -134,60 +133,69 @@ void file_load(const char *filename)
         stop_display();
 }
 
-int load_file_by_offset(int target)
+char *file_read_dirent(lfs_dir_t *dir, struct lfs_info *info, bool ignore_dot)
 {
-    lfs_dir_t dir;
-    if (safe_start)
-        return 0;
-    if (file_open)
-        stop_display();
-    int err = lfs_dir_open(&fs_lfs, &dir, "/");
-    if (err) {
-        return -1;
-    }
-    struct lfs_info info;
-    int last_fileno = 0;
-    int fileno;
-    for (fileno = 0; true; fileno++) {
-        int res  = lfs_dir_read(&fs_lfs, &dir, &info);
-        if (res < 0) {
-            lfs_dir_close(&fs_lfs, &dir);
-            return res;
-        }
-        if (res == 0) {
-            if (target == FIRST_FILE) {
-                lfs_dir_close(&fs_lfs, &dir);
-                return 0;
-            }
-            fileno = -1; // This will be incremented on continue
-            if (target < 0) {
-                target = last_fileno;
-            } else {
-                target = FIRST_FILE;
-            }
-            lfs_dir_rewind(&fs_lfs, &dir);
+    while (1) {
+        int res = lfs_dir_read(&fs_lfs, dir, info);
+        if (res != 1)
+            return NULL;
+        if (info->type != LFS_TYPE_REG)
             continue;
-        }
-
-        if (fileno < target)
+        if (ignore_dot && (info->name[0] == '.'))
             continue;
-
-        last_fileno = fileno;
-
-        if (fileno == target) {
-            if (info.type != LFS_TYPE_REG) {
-                target++;
-                continue;
-            }
-
-            lfs_dir_close(&fs_lfs, &dir);
-            file_load(info.name);
-            return fileno;
-        }
+        return info->name;
     }
 }
 
-void file_load_update_offset(const char *filename)
+char *file_find(lfs_dir_t *dir, struct lfs_info *info, int fileno, bool ignore_dot)
+{
+    char *name = NULL;
+    if (lfs_dir_open(&fs_lfs, dir, "/"))
+        return NULL;
+    for (int i = 0; i <= fileno; i++) {
+        name = file_read_dirent(dir, info, ignore_dot);
+        if (!name)
+            break;
+    }
+    lfs_dir_close(&fs_lfs, dir);
+    return name;
+}
+
+int file_count(bool ignore_dot)
+{
+    lfs_dir_t dir;
+    struct lfs_info info;
+    int count = 0;
+    if (lfs_dir_open(&fs_lfs, &dir, "/"))
+        return 0;
+    while (file_read_dirent(&dir, &info, ignore_dot))
+        count++;
+    lfs_dir_close(&fs_lfs, &dir);
+    return count;
+}
+
+int load_file_by_offset(int target)
+{
+    lfs_dir_t dir;
+    struct lfs_info info;
+    char *name = file_find(&dir, &info, target, true);
+    if (name) {
+        file_load(name);
+        return target;
+    }
+    if (target < 0)
+        target = file_count(true) - 1;
+    else
+        target = 0;
+    name = file_find(&dir, &info, target, true);
+    if (name) {
+        file_load(name);
+        return target;
+    }
+    return 0;
+}
+
+void file_update_offset(const char *filename)
 {
     lfs_dir_t dir;
     if (file_open)
@@ -197,23 +205,29 @@ void file_load_update_offset(const char *filename)
     struct lfs_info info;
     int fileno;
     for (fileno = 0; true; fileno++) {
-        int res = lfs_dir_read(&fs_lfs, &dir, &info);
-        if (res < 0) {
-            lfs_dir_close(&fs_lfs, &dir);
+        char *name = file_read_dirent(&dir, &info, true);
+        if (!name)
             break;
-        }
-        if (info.type != LFS_TYPE_REG)
-            continue;
 
-        if (strcmp(info.name, filename) == 0) {
+        if (strcmp(name, filename) == 0) {
             dir_offset = fileno;
             break;
         }
     }
 
     lfs_dir_close(&fs_lfs, &dir);
+}
 
+void file_load_update_offset(const char *filename)
+{
+    file_update_offset(filename);
     file_load(filename);
+}
+
+void file_set_default(const char *filename)
+{
+    file_update_offset(filename);
+    settings_set_default_file(dir_offset);
 }
 
 void next_file(void)
@@ -223,12 +237,7 @@ void next_file(void)
 
 void prev_file(void)
 {
-    dir_offset--;
-    if (dir_offset < FIRST_FILE)
-        dir_offset = -1;
-    int res = load_file_by_offset(dir_offset);
-    if (dir_offset < FIRST_FILE)
-        dir_offset = res;
+    dir_offset = load_file_by_offset(dir_offset - 1);
 }
 
 void start_display(void)

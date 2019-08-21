@@ -3,6 +3,8 @@
 #ifndef FILE_H
 #define FILE_H
 
+#include "lfs.h"
+
 extern bool file_open;
 extern bool safe_start;
 
@@ -76,5 +78,10 @@ void file_load_update_offset(const char *filename);
 int load_file_by_offset(int target);
 void next_file(void);
 void prev_file(void);
+
+char *file_read_dirent(lfs_dir_t *dir, struct lfs_info *info, bool ignore_dot);
+char *file_find(lfs_dir_t *dir, struct lfs_info *info, int fileno, bool ignore_dot);
+int file_count(bool ignore_dot);
+void file_set_default(const char *filename);
 
 #endif /* FILE_H */

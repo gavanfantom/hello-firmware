@@ -3,6 +3,7 @@
 #include "hello.h"
 #include "timer.h"
 #include "speaker.h"
+#include "settings.h"
 
 void speaker_init(void)
 {
@@ -45,7 +46,8 @@ void speaker_off(void)
 
 void beep(int frequency, int duration)
 {
-    speaker_on(frequency);
+    if (settings_beep())
+        speaker_on(frequency);
     delay(duration);
     speaker_off();
 }

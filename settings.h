@@ -11,10 +11,12 @@
 bool settings_beep(void);
 int settings_brightness(void);
 int settings_battery(void);
+int settings_default_file(void);
 void settings_change_beep(void);
 void settings_change_brightness_up(void);
 void settings_change_brightness_down(void);
 void settings_change_battery(void);
+void settings_set_default_file(int offset);
 void settings_save(void);
 void settings_load(void);
 
