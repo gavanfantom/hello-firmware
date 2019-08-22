@@ -238,14 +238,14 @@ void draw_battery(uint8_t *frame)
         battery = BATTERY_EMPTY;
     if (battery > BATTERY_FULL)
         battery = BATTERY_FULL;
-    battery = battery - BATTERY_EMPTY;
-    battery = battery * BATTERY_PIXELS / (BATTERY_FULL - BATTERY_EMPTY);
     int settings = settings_battery();
     if (settings == BATTERY_OFF)
         return;
     if (settings == BATTERY_WHENLOW)
-        if (battery < BATTERY_THRESHOLD)
+        if (battery > BATTERY_THRESHOLD)
             return;
+    battery = battery - BATTERY_EMPTY;
+    battery = battery * BATTERY_PIXELS / (BATTERY_FULL - BATTERY_EMPTY);
     int offset = 128 - BATTERY_WIDTH;
     frame[offset++] = 0x3c;
     frame[offset++] = 0x24;
