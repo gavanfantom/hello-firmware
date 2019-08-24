@@ -232,11 +232,13 @@ void file_set_default(const char *filename)
 
 void next_file(void)
 {
+    stop_display();
     dir_offset = load_file_by_offset(dir_offset + 1);
 }
 
 void prev_file(void)
 {
+    stop_display();
     dir_offset = load_file_by_offset(dir_offset - 1);
 }
 

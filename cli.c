@@ -11,6 +11,7 @@
 #include "write.h"
 #include "fs.h"
 #include "lock.h"
+#include "menu.h"
 
 #define CMD_BUFFER_SIZE ZMODEM_BUFFER_SIZE
 
@@ -55,6 +56,7 @@ void TIMEOUT_HANDLER(void)
 void cmd_rz(void)
 {
     lock_file();
+    menu = MENU_NONE;
     zmodem_setactive();
     uart_state = STATE_ZMODEM;
     timeout_timer_on(ZMODEM_TIMEOUT);
@@ -252,6 +254,7 @@ void uart_rxhandler(uint8_t byte)
         }
         if (cmd_ptr) {
             lock_file();
+            menu = MENU_NONE;
         } else {
             if (uart_state == STATE_CLI)
                 unlock_file();

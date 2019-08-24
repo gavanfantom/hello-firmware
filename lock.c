@@ -24,6 +24,11 @@ void check_file_lock(void)
         file_locked_request = false;
         uart_resume();
     }
+    if (menu != MENU_NONE) {
+        if (file_open) {
+            stop_display();
+        }
+    }
     if (!file_locked && !file_open && (menu == MENU_NONE)) {
         start_display();
     }
