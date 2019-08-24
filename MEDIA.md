@@ -95,6 +95,18 @@ Do not use the `format` command unless you have no choice. It will not ask you f
 
 ### Sending files
 
+#### The quick and easy way
+
+Make sure that lrzsz is installed, and then:
+
+`./send <files>`
+
+This defaults to /dev/ttyUSB0. If your badge is connected to a different tty:
+
+`DEVICE=/dev/ttyUSBwhatever ./send <files>`
+
+#### The traditional way
+
 Files can be placed onto the badge using ZMODEM. Simply initiate a transfer from your terminal program.
 
 If you're using minicom, that's Ctrl-A followed by S, or Meta-S depending on your operatinng system. Select zmodem then select your file. Go into a directory by pressing the space bar twice, and select and send a file by pressing the space bar once, and then enter.
