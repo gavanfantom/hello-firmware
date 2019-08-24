@@ -438,7 +438,7 @@ void menu_edit_action_save(void)
     int namelen = max+1;
     if (namelen > NAMELEN-1)
         namelen = NAMELEN-1;
-    name[NAMELEN-1] = '\0';
+    name[namelen] = '\0';
     strncpy(name, (char *)edit_buffer, namelen);
     int len = strlen(name);
     for (int i = 0; i < ITERATION_MAX; i++) {
@@ -488,7 +488,6 @@ void menu_edit_action_save(void)
                 lfs_file_write(&fs_lfs, &fs_file, data, FONT_LARGE_BLANK_WIDTH);
             }
         }
-        /* XXX actually write the image data here */
         lfs_file_close(&fs_lfs, &fs_file);
         file_load_update_offset(name);
         menu_action_exit();
