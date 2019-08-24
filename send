@@ -1,0 +1,21 @@
+#!/bin/sh
+
+if [ -z "${DEVICE}" ]
+then
+    DEVICE=/dev/ttyUSB0
+fi
+
+if [ -z "$1" ]
+then
+    echo "Usage: $0 <files>"
+    echo "Default is /dev/ttyUSB0"
+    echo "Otherwise: DEVICE=device $0 <files>"
+    exit 1
+fi
+
+(
+    stty 1000000 cs8 -cstopb -parenb -echo clocal raw crtscts
+    echo "a"
+    sz $*
+) <${DEVICE} >${DEVICE}
+
